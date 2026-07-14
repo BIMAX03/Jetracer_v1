@@ -1,0 +1,136 @@
+# JetRacer Web Remote Control
+
+Ứng dụng điều khiển JetRacer từ điện thoại hoặc máy tính qua trình duyệt. Giao diện hỗ trợ camera CSI trực tiếp, cần ga dọc, vô lăng đa điểm và phanh khẩn cấp.
+
+## Tính năng
+
+- Điều khiển servo lái và ESC qua PCA9685.
+- Cần ga dọc hai chiều: tiến, dừng và lùi.
+- Điều khiển ga và vô lăng đồng thời bằng hai ngón tay.
+- Ba mức giới hạn tốc độ.
+- Camera CSI MJPEG dùng chung cho nhiều thiết bị.
+- Emergency Brake đưa ga và vô lăng về neutral.
+- Tự chạy khi Jetson khởi động bằng systemd.
+
+## Phần cứng
+
+- NVIDIA Jetson Nano hoặc Jetson tương thích.
+- PCA9685 tại địa chỉ I2C `0x40`, bus `1`.
+- Servo lái trên PCA9685 channel `0`.
+- ESC trên PCA9685 channel `1`.
+- Camera CSI tương thích `nvarguscamerasrc`.
+- Nguồn riêng phù hợp cho servo và động cơ; Jetson, PCA9685 và nguồn servo phải nối chung GND.
+
+## Cấu trúc dự án
+
+```text
+JetRacer/
+├── main.py                 # Điểm khởi chạy web server
+├── config.py               # Kênh, giới hạn và hiệu chỉnh phần cứng
+├── car.py                  # API điều khiển xe cấp cao
+├── drivers/                # I2C, PCA9685, servo và ESC
+├── web/
+│   ├── api.py              # REST API ga/lái/dừng
+│   ├── camera.py           # Camera CSI MJPEG broadcast
+│   ├── controller.py       # Cầu nối web và phần cứng
+│   ├── templates/          # Giao diện HTML
+│   └── static/             # CSS và JavaScript
+├── tests/                  # Script kiểm tra phần cứng
+└── deploy/                 # Dịch vụ systemd và script cài đặt
+```
+
+## Cài đặt
+
+Ứng dụng cần Python 3 cùng các package Flask, OpenCV có GStreamer và SMBus. Trên Jetson, OpenCV thường được cung cấp cùng JetPack.
+
+```bash
+sudo apt update
+sudo apt install python3-flask python3-smbus python3-opencv
+```
+
+Kiểm tra PCA9685:
+
+```bash
+sudo i2cdetect -y -r 1
+```
+
+Kết quả cần hiển thị thiết bị tại địa chỉ `40`.
+
+## Chạy thủ công
+
+```bash
+cd ~/Jetracer/JetRacer
+python3 main.py
+```
+
+Trên thiết bị cùng mạng Wi-Fi, mở:
+
+```text
+http://<IP-CUA-JETSON>:5000
+```
+
+Ví dụ:
+
+```text
+http://192.168.106.193:5000
+```
+
+Không chạy `tests.test_camera` đồng thời với web server vì Argus chỉ nên được một producer camera sử dụng.
+
+## Tự khởi động cùng Jetson
+
+File service mặc định sử dụng user `jet-ai-lab` và thư mục `/home/jet-ai-lab/Jetracer/JetRacer`. Nếu cài ở vị trí khác, chỉnh `deploy/jetracer.service` trước khi cài.
+
+```bash
+cd ~/Jetracer/JetRacer
+chmod +x deploy/install_service.sh
+./deploy/install_service.sh
+```
+
+Các lệnh quản lý:
+
+```bash
+sudo systemctl status jetracer --no-pager
+sudo systemctl restart jetracer
+sudo journalctl -u jetracer -f
+```
+
+Gỡ dịch vụ:
+
+```bash
+./deploy/uninstall_service.sh
+```
+
+## Hiệu chỉnh
+
+Các thông số nằm trong `config.py`:
+
+- `STEERING_GAIN = -1.0`: đảo chiều servo lái.
+- `STEERING_OFFSET`: chỉnh vị trí lái giữa.
+- `STEERING_MIN_PULSE_US` và `STEERING_MAX_PULSE_US`: giới hạn servo.
+- `THROTTLE_LIMIT`: giới hạn ga tối đa.
+- `WEB_HOST = "0.0.0.0"`: cho phép thiết bị trong mạng truy cập.
+
+Sau khi đổi cấu hình:
+
+```bash
+sudo systemctl restart jetracer
+```
+
+## API
+
+```text
+POST /api/steering  {"value": -1.0 .. 1.0}
+POST /api/throttle  {"value": -1.0 .. 1.0}
+POST /api/stop
+GET  /camera/stream
+```
+
+## Lưu ý an toàn
+
+- Nâng bánh xe khỏi mặt đất khi thử ESC lần đầu.
+- Luôn bảo đảm Emergency Brake có thể thao tác được.
+- Không cấp nguồn servo trực tiếp từ chân nguồn yếu của Jetson.
+- Web API hiện dành cho mạng LAN tin cậy và chưa có xác thực người dùng.
+- Các file trong `tests/` là kiểm tra phần cứng và có thể làm servo hoặc động cơ chuyển động.
+
