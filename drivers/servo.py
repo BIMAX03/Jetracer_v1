@@ -1,0 +1,68 @@
+from drivers.pca9685 import PCA9685
+
+
+class Servo:
+    """Điều khiển 1 servo qua PCA9685.
+
+    Input chuẩn hoá: -1.0 .. 1.0
+        -1.0 -> góc nhỏ nhất (min_pulse_us)
+         0.0 -> giữa (center)
+         1.0 -> góc lớn nhất (max_pulse_us)
+
+    Với servo full range 90 độ:
+        -1.0 -> -45 độ
+         1.0 -> +45 độ
+    (nếu range thực tế khác, chỉ cần đổi min_pulse_us/max_pulse_us,
+     phần logic map không đổi)
+    """
+
+    def __init__(self,
+                 pca,
+                 channel,
+                 freq=50,
+                 min_pulse_us=1000,
+                 max_pulse_us=2000,
+                 gain=1.0,
+                 offset=0.0):
+
+        self.pca = pca
+        self.channel = channel
+
+        self.freq = freq
+        self.min_pulse_us = min_pulse_us
+        self.max_pulse_us = max_pulse_us
+
+        # Hiệu chỉnh cơ khí (tie rod lệch, servo lệch tâm...)
+        self.gain = gain
+        self.offset = offset
+
+        self.pca.set_pwm_freq(freq)
+
+    def _us_to_counts(self, pulse_us):
+        """Đổi độ rộng xung (us) sang giá trị 12-bit (0-4095) của PCA9685."""
+
+        period_us = 1_000_000.0 / self.freq   # 50Hz -> 20000us
+        counts = int(pulse_us / period_us * 4096.0 + 0.5)
+
+        return max(0, min(4095, counts))
+
+    def write(self, value):
+        """value: -1.0 .. 1.0"""
+
+        value = max(-1.0, min(1.0, value))
+
+        # Áp gain/offset rồi clamp lại lần nữa để không vượt giới hạn cơ khí
+        calibrated = value * self.gain + self.offset
+        calibrated = max(-1.0, min(1.0, calibrated))
+
+        # Map -1..1 -> min_pulse_us..max_pulse_us
+        pulse_us = self.min_pulse_us + (calibrated + 1.0) / 2.0 * (
+            self.max_pulse_us - self.min_pulse_us
+        )
+
+        counts = self._us_to_counts(pulse_us)
+
+        self.pca.set_pwm(self.channel, 0, counts)
+
+    def center(self):
+        self.write(0.0)

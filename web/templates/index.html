@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="description" content="JetRacer Remote Cockpit — Buồng lái điều khiển xe đua từ xa">
+    <title>JetRacer Cockpit</title>
+    <link rel="stylesheet" href="{{ url_for('pages.static', filename='style.css') }}">
+</head>
+<body>
+
+    <!-- ── Cảnh báo chế độ dọc (Orientation Overlay) ──────────────── -->
+    <div id="orientation-overlay">
+        <div class="overlay-content">
+            <div class="rotate-phone-icon">📱🔄</div>
+            <p>Vui lòng xoay ngang màn hình điện thoại để trải nghiệm buồng lái điều khiển tốt nhất!</p>
+        </div>
+    </div>
+
+    <!-- ── Khung Buồng Lái Cockpit chính ────────────────────────── -->
+    <main id="cockpit-container">
+        
+        <!-- HÌNH NỀN CON ĐƯỜNG ĐI ĐỂ TẠO CẢM GIÁC THẬT (Có thể thay bằng luồng Camera nếu có) -->
+        <div class="cockpit-background"></div>
+
+        <!-- ── 1. THANH TRẠNG THÁI PHÍA TRÊN (Top Status Bar) ───────── -->
+        <header class="top-bar">
+            <div class="top-left">
+                <button id="btn-back" class="nav-back-btn">&lt; Back</button>
+                <div class="sys-icons">
+                    <button class="sys-icon-btn" id="btn-wifi" aria-label="WiFi status">
+                        <svg class="icon-svg" viewBox="0 0 24 24">
+                            <path d="M12 21l-12-12c2.4-2.4 5.6-3.8 9-3.8s6.6 1.4 9 3.8l-6 6zm0-5l-8-8c1.6-1.6 3.7-2.5 6-2.5s4.4.9 6 2.5z"/>
+                        </svg>
+                    </button>
+                    <button class="sys-icon-btn" id="btn-radar" aria-label="Radar sensor">
+                        <svg class="icon-svg" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
+                            <circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 3"/>
+                            <line x1="12" y1="2" x2="12" y2="22" stroke="currentColor" stroke-width="1.5"/>
+                            <line x1="2" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="1.5"/>
+                            <line x1="12" y1="12" x2="20" y2="5" stroke="currentColor" stroke-width="2" id="radar-sweep"/>
+                        </svg>
+                    </button>
+                    <button class="sys-icon-btn" id="btn-mic" aria-label="Voice control">
+                        <svg class="icon-svg" viewBox="0 0 24 24">
+                            <path d="M12 14c1.66 0 3-1.34 3-3v-6c0-1.66-1.34-3-3-3s-3 1.34-3 3v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1s-5.3-2.1-5.3-5.1h-1.7c0 3.41 2.72 6.23 6 6.72v3.28h3v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="top-right">
+                <!-- Chế độ tốc độ (Gear select) dạng LED -->
+                <div class="gear-selector">
+                    <button id="gear-1" class="gear-btn active" data-gear="1">
+                        <span class="digital-num">1</span>
+                    </button>
+                    <button id="gear-2" class="gear-btn" data-gear="2">
+                        <span class="digital-num">2</span>
+                    </button>
+                    <button id="gear-3" class="gear-btn" data-gear="3">
+                        <span class="digital-num">3</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- ── 2. CỤM ĐIỀU KHIỂN BÊN TRÁI (Cần ga dọc & Nút phụ) ────── -->
+        <section class="left-panel">
+            <div class="throttle-control" id="throttle-control">
+                <div class="throttle-readout">
+                    <span id="throttle-direction">DỪNG</span>
+                    <strong id="throttle-percent">0%</strong>
+                </div>
+
+                <div class="throttle-slider-frame">
+                    <span class="throttle-label throttle-label-forward">TIẾN</span>
+                    <input
+                        id="throttle-slider"
+                        class="throttle-slider"
+                        type="range"
+                        min="-100"
+                        max="100"
+                        value="0"
+                        step="1"
+                        aria-label="Cần ga: kéo lên để tiến, kéo xuống để lùi"
+                        aria-valuetext="Dừng"
+                    >
+                    <span class="throttle-neutral-mark" aria-hidden="true"></span>
+                    <span class="throttle-label throttle-label-reverse">LÙI</span>
+                </div>
+            </div>
+
+            <!-- Nút Rocking Horse (Chế độ lái tự động/bập bênh vui nhộn hoặc cruise control) -->
+            <div class="bottom-extra-left">
+                <div class="scifi-btn-wrapper sm-frame">
+                    <button id="btn-cruise" class="scifi-action-btn extra-btn" aria-label="Cruise Control/Rocking Mode">
+                        <!-- Icon Ngựa gỗ / Ngựa bập bênh -->
+                        <svg class="icon-svg" viewBox="0 0 24 24">
+                            <path d="M19 13.5c0-.83-.67-1.5-1.5-1.5H16l-1.5-4h1c.83 0 1.5-.67 1.5-1.5S16.33 5 15.5 5h-4c-.83 0-1.5.67-1.5 1.5 0 .47.22.88.56 1.15l.94 2.51H7.83L6.2 7.03C6.7 6.64 7 6.1 7 5.5 7 4.67 6.33 4 5.5 4S4 4.67 4 5.5c0 .7.48 1.28 1.13 1.45l1.83 3.65C5.81 11.23 5 12.27 5 13.5c0 1.38 1.12 2.5 2.5 2.5H10v2h-4c-1.1 0-2 .9-2 2h16c0-1.1-.9-2-2-2h-4v-2h2.5c1.38 0 2.5-1.12 2.5-2.5zm-8.31-7.5h2.62l.75 2H11.5l-.81-2zM7.5 14c-.28 0-.5-.22-.5-.5s.22-.5.5-.5h9c.28 0 .5.22.5.5s-.22.5-.5.5h-9z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── 3. BẢNG ĐỒNG HỒ Ở GIỮA (Center Dashboard) ────────────── -->
+        <section class="center-panel">
+            <div class="camera-view">
+                <img
+                    id="camera-feed"
+                    class="camera-feed"
+                    src="{{ url_for('camera.stream') }}"
+                    alt="Camera phía trước JetRacer"
+                >
+                <div id="camera-status" class="camera-status">CAMERA CONNECTING</div>
+                <div class="camera-crosshair" aria-hidden="true"></div>
+            </div>
+
+            <div class="dashboard-meter">
+                <!-- Đồng hồ tốc độ & góc lái -->
+                <div class="gauge-container">
+                    <svg class="gauge-svg" viewBox="0 0 200 100">
+                        <!-- Cung chia vạch tốc độ -->
+                        <path class="gauge-track" d="M20 90 A 80 80 0 0 1 180 90" fill="none" stroke="#1e2a42" stroke-width="8" stroke-linecap="round"/>
+                        <path id="gauge-fill" class="gauge-fill" pathLength="100" d="M20 90 A 80 80 0 0 1 180 90" fill="none" stroke="url(#blue-grad)" stroke-width="8" stroke-linecap="round"/>
+                        
+                        <!-- Kim đồng hồ -->
+                        <line id="gauge-needle" x1="100" y1="90" x2="100" y2="28" transform="rotate(-90 100 90)" stroke="#ff4444" stroke-width="3" stroke-linecap="round"/>
+                        <circle cx="100" cy="90" r="8" fill="#ff4444"/>
+
+                        <defs>
+                            <linearGradient id="blue-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stop-color="#3b82f6"/>
+                                <stop offset="100%" stop-color="#00f5ff"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+
+                    <div class="dashboard-stats">
+                        <div class="stat-item">
+                            <span class="stat-val" id="val-speed">0%</span>
+                            <span class="stat-lbl">SPEED</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-val" id="val-angle">0.00</span>
+                            <span class="stat-lbl">STEER</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Nút Phanh chân / Dừng khẩn cấp ở phía dưới giữa -->
+            <div class="bottom-center-brake">
+                <div class="scifi-btn-wrapper long-frame">
+                    <button id="btn-emergency" class="scifi-action-btn emergency-btn" aria-label="Emergency Brake">
+                        <span class="pedal-label">⚠ EMERGENCY BRAKE</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── 4. VÔ LĂNG ĐIỀU KHIỂN BÊN PHẢI (Steering Wheel) ──────── -->
+        <section class="right-panel">
+            <div class="steering-wrapper">
+                <!-- VÔ LĂNG ĐƯỢC VẼ BẰNG SVG, CÓ THỂ XOAY ĐƯỢC -->
+                <div id="steering-wheel" class="wheel-element">
+                    <svg viewBox="0 0 300 300" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Vòng ngoài vô lăng (Da Đỏ + Nhựa Đen xen kẽ) -->
+                        <circle cx="150" cy="150" r="135" fill="none" stroke="#222" stroke-width="26" />
+                        
+                        <!-- Grip ốp đỏ phía trên và dưới vô lăng để giống ảnh -->
+                        <path d="M40 90 A 135 135 0 0 1 260 90" fill="none" stroke="#c22" stroke-width="28" stroke-linecap="round"/>
+                        <path d="M60 220 A 135 135 0 0 0 240 220" fill="none" stroke="#c22" stroke-width="28" stroke-linecap="round"/>
+                        
+                        <!-- Vòng viền chrome kim loại -->
+                        <circle cx="150" cy="150" r="122" fill="none" stroke="#555" stroke-width="2" />
+                        
+                        <!-- Trục ngang và dọc của vô lăng -->
+                        <!-- Trục ngang -->
+                        <path d="M 15 150 L 110 150 M 190 150 L 285 150" stroke="#333" stroke-width="32" stroke-linecap="round"/>
+                        <!-- Trục chéo xuống phía dưới -->
+                        <path d="M 150 150 L 150 250" stroke="#333" stroke-width="36" stroke-linecap="round"/>
+                        
+                        <!-- Chi tiết ốp nhôm bạc trên chấu vô lăng -->
+                        <path d="M 50 150 L 105 150 M 195 150 L 250 150" stroke="#777" stroke-width="8"/>
+                        <path d="M 150 180 L 150 240" stroke="#777" stroke-width="8"/>
+                        
+                        <!-- Còi xe ở trung tâm (Horn Button) -->
+                        <circle cx="150" cy="150" r="42" fill="#2c2c2c" stroke="#444" stroke-width="4"/>
+                        <circle cx="150" cy="150" r="32" fill="#1e1e1e" />
+                        <!-- Nút Logo Chrome nhỏ ở giữa -->
+                        <circle cx="150" cy="150" r="12" fill="#555" stroke="#999" stroke-width="2"/>
+                    </svg>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script src="{{ url_for('pages.static', filename='script.js') }}"></script>
+</body>
+</html>

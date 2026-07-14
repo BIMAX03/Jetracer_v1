@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+*.log
+.env
+.venv/
+venv/
+camera_test.jpg
+.DS_Store

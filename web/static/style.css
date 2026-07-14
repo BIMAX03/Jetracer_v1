@@ -1,0 +1,685 @@
+/* ═══════════════════════════════════════════════════════════════════
+   JetRacer Futuristic Cockpit — Style Sheet
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Reset & Variable Systems ────────────────────────────────────── */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --bg-cockpit:    #03070c;
+    --neon-blue:     #00f0ff;
+    --neon-blue-glow:rgba(0, 240, 255, 0.35);
+    --neon-red:      #ff3b30;
+    --neon-red-glow: rgba(255, 59, 48, 0.4);
+    
+    --text-neon:     #e0f7fc;
+    --panel-bg:      rgba(10, 18, 30, 0.8);
+    --panel-border:  rgba(0, 240, 255, 0.2);
+    
+    --radius-scifi:  4px;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: var(--bg-cockpit);
+    color: var(--text-neon);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* ── Cảnh báo chế độ dọc (Orientation Overlay) ──────────────────── */
+#orientation-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #060c13;
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 24px;
+}
+
+.overlay-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
+
+.rotate-phone-icon {
+    font-size: 4rem;
+    animation: rotatePhone 2.5s infinite ease-in-out;
+}
+
+#orientation-overlay p {
+    font-size: 1.1rem;
+    color: var(--neon-blue);
+    text-shadow: 0 0 8px var(--neon-blue-glow);
+    max-width: 320px;
+    line-height: 1.5;
+}
+
+@keyframes rotatePhone {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(-90deg); }
+}
+
+/* Mặc định ẩn overlay nếu màn hình đã nằm ngang */
+@media (orientation: landscape) {
+    #orientation-overlay {
+        display: none !important;
+    }
+}
+
+/* ── Container chính của Cockpit ────────────────────────────────── */
+#cockpit-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-template-columns: 24% 52% 24%;
+    grid-template-rows: 60px 1fr;
+    padding: 10px 14px 14px 14px;
+    box-sizing: border-box;
+    z-index: 10;
+}
+
+/* Hình nền buồng lái xe đua */
+.cockpit-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: 
+        radial-gradient(ellipse at bottom, rgba(16, 28, 48, 0.4) 0%, rgba(3, 7, 12, 0.95) 80%),
+        linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4));
+    background-size: cover;
+    z-index: -1;
+    pointer-events: none;
+}
+
+/* ── 1. Top Status Bar ────────────────────────────────────────── */
+.top-bar {
+    grid-column: 1 / span 3;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--panel-border);
+    padding-bottom: 6px;
+}
+
+.top-left {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.nav-back-btn {
+    background: transparent;
+    border: none;
+    color: var(--neon-blue);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-shadow: 0 0 6px var(--neon-blue-glow);
+    transition: opacity 0.2s;
+}
+
+.nav-back-btn:active {
+    opacity: 0.6;
+}
+
+.sys-icons {
+    display: flex;
+    gap: 12px;
+}
+
+.sys-icon-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(0, 240, 255, 0.15);
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--neon-blue);
+    cursor: pointer;
+    box-shadow: 0 0 4px rgba(0, 240, 255, 0.1);
+}
+
+.icon-svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+}
+
+#radar-sweep {
+    transform-origin: 12px 12px;
+    animation: radarSweep 4s linear infinite;
+}
+
+@keyframes radarSweep {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Speed Gear Selector (Nút 1, 2, 3 LED) */
+.gear-selector {
+    display: flex;
+    gap: 8px;
+}
+
+.gear-btn {
+    background: var(--panel-bg);
+    border: 2px solid #112a42;
+    border-radius: var(--radius-scifi);
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.8);
+    transition: all 0.2s;
+}
+
+/* Khung bọc góc LED phát sáng màu xanh của Gear */
+.gear-btn::before, .gear-btn::after {
+    content: '';
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border: 1.5px solid var(--neon-blue);
+}
+
+.gear-btn::before { top: -2px; left: -2px; border-right: none; border-bottom: none; }
+.gear-btn::after { bottom: -2px; right: -2px; border-left: none; border-top: none; }
+
+.digital-num {
+    font-family: monospace;
+    font-size: 1.3rem;
+    font-weight: 900;
+    color: rgba(0, 240, 255, 0.25);
+    text-shadow: none;
+    transition: color 0.2s, text-shadow 0.2s;
+}
+
+.gear-btn.active {
+    border-color: var(--neon-blue);
+    box-shadow: 0 0 10px var(--neon-blue-glow), inset 0 0 6px var(--neon-blue-glow);
+}
+
+.gear-btn.active .digital-num {
+    color: var(--neon-blue);
+    text-shadow: 0 0 8px var(--neon-blue);
+}
+
+/* ── 2. Cụm điều khiển bên trái (Ga/Lùi & Rocking) ──────────────── */
+.left-panel {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 14px;
+}
+
+.throttle-control {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.throttle-readout {
+    min-width: 84px;
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 6px;
+    font-family: monospace;
+    color: var(--neon-blue);
+    text-shadow: 0 0 7px var(--neon-blue-glow);
+}
+
+.throttle-readout span {
+    font-size: 0.62rem;
+    letter-spacing: 1px;
+}
+
+.throttle-readout strong {
+    font-size: 1rem;
+}
+
+.throttle-slider-frame {
+    position: relative;
+    width: 82px;
+    height: 245px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid var(--panel-border);
+    border-radius: var(--radius-scifi);
+    background:
+        linear-gradient(to bottom,
+            rgba(0, 240, 255, 0.12),
+            rgba(10, 18, 30, 0.8) 45%,
+            rgba(10, 18, 30, 0.8) 55%,
+            rgba(255, 59, 48, 0.1));
+    box-shadow: inset 0 0 14px rgba(0, 240, 255, 0.08);
+}
+
+.throttle-slider-frame::before,
+.throttle-slider-frame::after {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border: 2px solid var(--neon-blue);
+}
+
+.throttle-slider-frame::before {
+    top: -2px;
+    left: -2px;
+    border-right: none;
+    border-bottom: none;
+}
+
+.throttle-slider-frame::after {
+    right: -2px;
+    bottom: -2px;
+    border-top: none;
+    border-left: none;
+}
+
+.throttle-slider {
+    width: 42px;
+    height: 190px;
+    margin: 0;
+    writing-mode: vertical-lr;
+    direction: rtl;
+    touch-action: none;
+    accent-color: var(--neon-blue);
+    cursor: grab;
+    -webkit-appearance: slider-vertical;
+}
+
+.throttle-slider:active {
+    cursor: grabbing;
+}
+
+.throttle-slider:focus-visible {
+    outline: 2px solid var(--neon-blue);
+    outline-offset: 5px;
+}
+
+.throttle-label {
+    position: absolute;
+    left: 5px;
+    font-size: 0.52rem;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    color: rgba(0, 240, 255, 0.65);
+    writing-mode: vertical-rl;
+}
+
+.throttle-label-forward {
+    top: 12px;
+}
+
+.throttle-label-reverse {
+    bottom: 12px;
+    color: rgba(255, 59, 48, 0.7);
+}
+
+.throttle-neutral-mark {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    top: 50%;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.45);
+    box-shadow: 0 0 5px rgba(255, 255, 255, 0.25);
+    pointer-events: none;
+}
+
+/* Khung LED công nghệ cao (Sci-Fi Button Wrapper) */
+.scifi-btn-wrapper {
+    position: relative;
+    background: var(--panel-bg);
+    border: 1.5px solid var(--panel-border);
+    border-radius: var(--radius-scifi);
+    padding: 2px;
+    box-shadow: inset 0 0 10px rgba(0, 240, 255, 0.05);
+}
+
+/* Khung góc của nút */
+.scifi-btn-wrapper::before, .scifi-btn-wrapper::after {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border: 2px solid var(--neon-blue);
+}
+.scifi-btn-wrapper::before { top: -2px; left: -2px; border-right: none; border-bottom: none; }
+.scifi-btn-wrapper::after { bottom: -2px; right: -2px; border-left: none; border-top: none; }
+
+.scifi-action-btn {
+    background: rgba(10, 18, 30, 0.6);
+    border: 1px solid rgba(0, 240, 255, 0.15);
+    color: var(--neon-blue);
+    width: 68px;
+    height: 68px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s;
+}
+
+.arrow-svg {
+    width: 28px;
+    height: 28px;
+    fill: currentColor;
+    filter: drop-shadow(0 0 4px var(--neon-blue-glow));
+}
+
+.scifi-action-btn:active, .scifi-action-btn.active {
+    background: rgba(0, 240, 255, 0.2);
+    border-color: var(--neon-blue);
+    color: #fff;
+    box-shadow: 0 0 14px var(--neon-blue-glow);
+}
+
+/* Cỡ nhỏ cho rocking horse */
+.sm-frame .scifi-action-btn {
+    width: 48px;
+    height: 48px;
+}
+.sm-frame .icon-svg {
+    width: 22px;
+    height: 22px;
+}
+
+.bottom-extra-left {
+    align-self: flex-start;
+    margin-top: 10px;
+}
+
+/* ── 3. Bảng đồng hồ trung tâm (Center Dashboard) ───────────────── */
+.center-panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 6px;
+    overflow: hidden;
+    border: 1px solid rgba(0, 240, 255, 0.16);
+    background: #02060a;
+}
+
+.camera-view {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at center, rgba(0, 240, 255, 0.08), transparent 55%),
+        #02060a;
+}
+
+.camera-feed {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+}
+
+.camera-status {
+    position: absolute;
+    top: 8px;
+    right: 9px;
+    padding: 3px 6px;
+    border: 1px solid rgba(255, 59, 48, 0.55);
+    background: rgba(3, 7, 12, 0.72);
+    color: var(--neon-red);
+    font: 700 0.52rem monospace;
+    letter-spacing: 0.7px;
+    z-index: 2;
+}
+
+.camera-status.live {
+    border-color: rgba(0, 240, 255, 0.55);
+    color: var(--neon-blue);
+}
+
+.camera-crosshair {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 42px;
+    height: 42px;
+    border: 1px solid rgba(0, 240, 255, 0.25);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.camera-crosshair::before,
+.camera-crosshair::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    background: rgba(0, 240, 255, 0.35);
+    transform: translate(-50%, -50%);
+}
+
+.camera-crosshair::before {
+    width: 58px;
+    height: 1px;
+}
+
+.camera-crosshair::after {
+    width: 1px;
+    height: 58px;
+}
+
+.dashboard-meter {
+    background: radial-gradient(circle, rgba(16, 28, 48, 0.24) 0%, rgba(3, 7, 12, 0.32) 100%);
+    border: 1px solid rgba(0, 240, 255, 0.12);
+    border-radius: 44px 44px 0 0;
+    width: 175px;
+    padding: 7px 11px 2px 11px;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.28), inset 0 0 10px rgba(0, 240, 255, 0.025);
+    position: relative;
+    border-bottom: none;
+    z-index: 3;
+    pointer-events: none;
+    opacity: 0.72;
+}
+
+.gauge-container {
+    position: relative;
+    width: 100%;
+}
+
+.gauge-svg {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.gauge-track {
+    stroke: #0a1320;
+}
+
+.gauge-fill {
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    transition: stroke-dashoffset 0.1s ease-out;
+}
+
+#gauge-needle {
+    /* Phép quay được đặt bằng SVG transform để hoạt động đúng trên Safari/iOS. */
+}
+
+.dashboard-stats {
+    display: flex;
+    justify-content: space-around;
+    margin-top: -12px;
+    padding-bottom: 4px;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.stat-val {
+    font-family: monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--neon-blue);
+    text-shadow: 0 0 6px var(--neon-blue-glow);
+}
+
+.stat-lbl {
+    font-size: 0.6rem;
+    color: rgba(0, 240, 255, 0.4);
+    letter-spacing: 1px;
+}
+
+/* Nút phanh chân / Emergency stop dài bên dưới */
+.long-frame {
+    width: 220px;
+}
+
+.bottom-center-brake {
+    position: relative;
+    z-index: 4;
+}
+
+.long-frame::before, .long-frame::after {
+    border-color: var(--neon-red);
+}
+
+.emergency-btn {
+    width: 100%;
+    height: 40px;
+    color: var(--neon-red);
+    border-color: rgba(255, 59, 48, 0.3);
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    animation: glowPulse 2.5s infinite ease-in-out;
+}
+
+.emergency-btn:active {
+    background: rgba(255, 59, 48, 0.25);
+    border-color: var(--neon-red);
+    box-shadow: 0 0 16px var(--neon-red-glow);
+}
+
+@keyframes glowPulse {
+    0%, 100% { box-shadow: 0 0 4px rgba(255, 59, 48, 0.1); }
+    50% { box-shadow: 0 0 12px rgba(255, 59, 48, 0.4); }
+}
+
+/* ── 4. Vô lăng điều khiển bên phải (Steering Wheel) ────────────── */
+.right-panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.steering-wrapper {
+    position: relative;
+    width: 175px;
+    height: 175px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none; /* Cực kì quan trọng để không bị cuộn trang trên mobile khi kéo vô lăng */
+}
+
+/* Vòng sáng xanh bao bọc vô lăng như la bàn điều hướng */
+.steering-wrapper::after {
+    content: '';
+    position: absolute;
+    width: 195px;
+    height: 195px;
+    border: 1px dashed rgba(0, 240, 255, 0.25);
+    border-radius: 50%;
+    pointer-events: none;
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.05);
+}
+
+.wheel-element {
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+    transform: rotate(0deg);
+    transition: transform 0.05s ease-out; /* mượt mà khi trả lái */
+    transform-origin: center center;
+}
+
+.wheel-element:active {
+    cursor: grabbing;
+}
+
+/* ── Cấu hình responsive tối ưu cho thiết bị di động ────────────── */
+@media (max-height: 380px) {
+    #cockpit-container {
+        grid-template-rows: 45px 1fr;
+        padding: 4px 10px 10px 10px;
+    }
+    .top-bar {
+        height: 35px;
+    }
+    .scifi-action-btn {
+        width: 58px;
+        height: 58px;
+    }
+    .throttle-slider-frame {
+        height: 190px;
+    }
+    .throttle-slider {
+        height: 140px;
+    }
+    .steering-wrapper {
+        width: 145px;
+        height: 145px;
+    }
+    .steering-wrapper::after {
+        width: 160px;
+        height: 160px;
+    }
+    .dashboard-meter {
+        width: 150px;
+    }
+    .long-frame {
+        width: 180px;
+    }
+    .emergency-btn {
+        height: 32px;
+    }
+}
