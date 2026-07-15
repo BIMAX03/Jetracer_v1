@@ -24,6 +24,14 @@
         <!-- HÌNH NỀN CON ĐƯỜNG ĐI ĐỂ TẠO CẢM GIÁC THẬT (Có thể thay bằng luồng Camera nếu có) -->
         <div class="cockpit-background"></div>
 
+        <!-- Ảnh trang trí: xe đỏ góc trái dưới, xe trắng góc phải trên -->
+        <figure class="corner-car corner-car-left" aria-hidden="true">
+            <img src="{{ url_for('pages.static', filename='car-red.png') }}" alt="" onerror="this.parentElement.style.display='none'">
+        </figure>
+        <figure class="corner-car corner-car-right" aria-hidden="true">
+            <img src="{{ url_for('pages.static', filename='car-white.png') }}" alt="" onerror="this.parentElement.style.display='none'">
+        </figure>
+
         <!-- ── 1. THANH TRẠNG THÁI PHÍA TRÊN (Top Status Bar) ───────── -->
         <header class="top-bar">
             <div class="top-left">
@@ -152,14 +160,6 @@
                 </div>
             </div>
 
-            <!-- Nút Phanh chân / Dừng khẩn cấp ở phía dưới giữa -->
-            <div class="bottom-center-brake">
-                <div class="scifi-btn-wrapper long-frame">
-                    <button id="btn-emergency" class="scifi-action-btn emergency-btn" aria-label="Emergency Brake">
-                        <span class="pedal-label">⚠ EMERGENCY BRAKE</span>
-                    </button>
-                </div>
-            </div>
         </section>
 
         <!-- ── 4. VÔ LĂNG ĐIỀU KHIỂN BÊN PHẢI (Steering Wheel) ──────── -->

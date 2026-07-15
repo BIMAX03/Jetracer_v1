@@ -30,7 +30,6 @@
     var btnCruise = document.getElementById("btn-cruise");
     
     // Nút khẩn cấp
-    var btnEmergency = document.getElementById("btn-emergency");
     var btnBack = document.getElementById("btn-back");
 
     // Chọn số (Gear)
@@ -394,10 +393,6 @@
     });
 
     /* ── Nút dừng khẩn cấp & Quay lại ────────────────────────────── */
-    btnEmergency.addEventListener("click", function () {
-        sendEmergencyStop();
-    });
-
     btnBack.addEventListener("click", function () {
         window.history.back();
     });

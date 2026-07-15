@@ -683,3 +683,194 @@ html, body {
         height: 32px;
     }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Minimal Race 95 theme — đỏ/vàng, camera là trọng tâm
+   ═══════════════════════════════════════════════════════════════════ */
+:root {
+    --bg-cockpit: #080303;
+    --neon-blue: #ffc928;
+    --neon-blue-glow: rgba(255, 201, 40, 0.35);
+    --neon-red: #ed2924;
+    --neon-red-glow: rgba(237, 41, 36, 0.42);
+    --text-neon: #fff2d0;
+    --panel-bg: rgba(35, 7, 7, 0.82);
+    --panel-border: rgba(255, 201, 40, 0.3);
+}
+
+body {
+    background:
+        radial-gradient(circle at 52% 45%, rgba(185, 23, 19, 0.24), transparent 45%),
+        linear-gradient(135deg, #070303 0%, #2c0909 50%, #080303 100%);
+}
+
+#cockpit-container {
+    grid-template-columns: 17% 61% 22%;
+    grid-template-rows: 48px 1fr;
+    padding: 7px 12px 10px;
+    column-gap: 9px;
+    isolation: isolate;
+}
+
+.cockpit-background {
+    background:
+        repeating-linear-gradient(135deg, rgba(255,255,255,.018) 0 2px, transparent 2px 16px),
+        linear-gradient(115deg, transparent 0 72%, rgba(255,201,40,.08) 72% 73%, transparent 73%);
+}
+
+.top-bar {
+    position: relative;
+    z-index: 5;
+    height: 42px;
+    padding: 0 4px 5px;
+    border-bottom-color: rgba(255, 201, 40, .28);
+}
+
+.top-bar::before {
+    content: "⚡ JETRACER  95";
+    color: #ffc928;
+    font-size: .95rem;
+    font-weight: 900;
+    font-style: italic;
+    letter-spacing: 1.4px;
+    text-shadow: 2px 2px 0 #7b1010, 0 0 8px rgba(255,201,40,.2);
+}
+
+/* Bỏ các thành phần trang trí/không phục vụ lái xe. */
+.top-left,
+.bottom-extra-left,
+.dashboard-meter {
+    display: none !important;
+}
+
+.gear-selector { gap: 5px; }
+.gear-selector::before {
+    content: "SPEED";
+    margin-right: 4px;
+    color: rgba(255,242,208,.46);
+    font-size: .48rem;
+    font-weight: 900;
+    letter-spacing: 1px;
+}
+.gear-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    border-width: 1px;
+    border-color: rgba(255,201,40,.3);
+    background: rgba(8,3,3,.72);
+}
+.gear-btn.active {
+    border-color: #ffc928;
+    background: linear-gradient(145deg, #e62b25, #8d1111);
+    box-shadow: 0 0 10px rgba(229,37,33,.5);
+}
+.gear-btn.active .digital-num { color: #fff2d0; text-shadow: none; }
+.digital-num { color: rgba(255,242,208,.38); font-size: 1rem; }
+
+.left-panel,
+.right-panel,
+.center-panel {
+    position: relative;
+    z-index: 3;
+    min-width: 0;
+    border: 1px solid rgba(255,201,40,.22);
+    border-radius: 14px;
+    background: linear-gradient(155deg, rgba(64,10,10,.64), rgba(7,3,3,.76));
+    box-shadow: inset 0 0 20px rgba(229,37,33,.06), 0 12px 28px rgba(0,0,0,.28);
+}
+
+.left-panel {
+    justify-content: center;
+    padding: 6px 0;
+}
+.throttle-control { gap: 5px; }
+.throttle-readout { color: #ffc928; text-shadow: none; }
+.throttle-slider-frame {
+    width: 72px;
+    height: min(245px, calc(100vh - 110px));
+    border-color: rgba(255,201,40,.28);
+    background: linear-gradient(to bottom, rgba(255,201,40,.1), rgba(20,5,5,.78) 48%, rgba(229,37,33,.12));
+}
+.throttle-slider-frame::before,
+.throttle-slider-frame::after { border-color: #ed2924; }
+.throttle-slider { accent-color: #ed2924; }
+.throttle-label-forward { color: #ffc928; }
+.throttle-label-reverse { color: #f25d58; }
+.throttle-neutral-mark { background: #ffc928; box-shadow: 0 0 6px rgba(255,201,40,.5); }
+
+.center-panel {
+    overflow: hidden;
+    padding: 0;
+    border: 2px solid rgba(255,201,40,.46);
+    background: #050202;
+}
+.camera-view { inset: 0; }
+.camera-feed { object-fit: cover; }
+.camera-status {
+    top: 10px;
+    right: 10px;
+    border-radius: 20px;
+    border-color: rgba(237,41,36,.55);
+    background: rgba(8,3,3,.7);
+}
+.camera-status.live { color: #ffc928; border-color: rgba(255,201,40,.55); }
+.camera-crosshair { border-color: rgba(255,201,40,.28); }
+.camera-crosshair::before,
+.camera-crosshair::after { background: rgba(255,201,40,.38); }
+.bottom-center-brake { position: absolute; left: 50%; bottom: 9px; transform: translateX(-50%); }
+.long-frame { width: 205px; }
+.emergency-btn {
+    height: 35px;
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(116,14,14,.94), rgba(48,5,5,.95));
+    color: #fff2d0;
+}
+
+.right-panel {
+    overflow: hidden;
+    align-items: center;
+}
+.steering-wrapper { width: min(92%, 190px); height: auto; aspect-ratio: 1; z-index: 4; }
+.steering-wrapper::after { border-color: rgba(255,201,40,.26); }
+.wheel-element { filter: drop-shadow(0 8px 12px rgba(0,0,0,.5)); }
+
+.corner-car {
+    position: absolute;
+    z-index: 1;
+    margin: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+.corner-car img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.corner-car-left {
+    left: 0;
+    bottom: 0;
+    width: clamp(120px, 20vw, 255px);
+    height: clamp(130px, 35vh, 250px);
+    opacity: .48;
+    filter: saturate(1.12) contrast(1.05) drop-shadow(12px 4px 18px rgba(0,0,0,.7));
+    -webkit-mask-image: radial-gradient(ellipse at 43% 66%, #000 0 34%, rgba(0,0,0,.9) 53%, transparent 82%);
+    mask-image: radial-gradient(ellipse at 43% 66%, #000 0 34%, rgba(0,0,0,.9) 53%, transparent 82%);
+}
+.corner-car-left img { object-position: 50% 67%; }
+.corner-car-right {
+    top: 38px;
+    right: 0;
+    width: clamp(180px, 28vw, 360px);
+    height: clamp(95px, 24vh, 180px);
+    opacity: .42;
+    filter: contrast(1.05) drop-shadow(-10px 8px 18px rgba(0,0,0,.65));
+    -webkit-mask-image: radial-gradient(ellipse at 57% 43%, #000 0 38%, rgba(0,0,0,.9) 55%, transparent 84%);
+    mask-image: radial-gradient(ellipse at 57% 43%, #000 0 38%, rgba(0,0,0,.9) 55%, transparent 84%);
+}
+.corner-car-right img { object-position: 52% 48%; }
+
+@media (max-height: 380px) {
+    #cockpit-container { grid-template-rows: 40px 1fr; padding-top: 4px; }
+    .top-bar { height: 36px; }
+    .throttle-slider-frame { height: calc(100vh - 100px); }
+    .steering-wrapper { width: min(88%, 155px); }
+    .corner-car-left { width: 145px; height: 130px; }
+    .corner-car-right { top: 32px; width: 210px; height: 95px; }
+}
