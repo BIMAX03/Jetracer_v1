@@ -11,6 +11,8 @@
 - Camera CSI MJPEG dùng chung cho nhiều thiết bị.
 - Emergency Brake đưa ga và vô lăng về neutral.
 - Tự chạy khi Jetson khởi động bằng systemd.
+- Chế độ điều khiển độc lập bằng USB/Bluetooth gamepad.
+- Chế độ tự hành bám vạch bằng OpenCV và PID.
 
 ## Phần cứng
 
@@ -28,6 +30,7 @@ JetRacer/
 ├── main.py                 # Điểm khởi chạy web server
 ├── config.py               # Kênh, giới hạn và hiệu chỉnh phần cứng
 ├── car.py                  # API điều khiển xe cấp cao
+├── auto/                   # Camera, nhận diện vạch, PID và vòng tự hành
 ├── drivers/                # I2C, PCA9685, servo và ESC
 ├── web/
 │   ├── api.py              # REST API ga/lái/dừng
@@ -101,6 +104,80 @@ Gỡ dịch vụ:
 ./deploy/uninstall_service.sh
 ```
 
+## Điều khiển bằng gamepad
+
+Gamepad mode chạy độc lập với web mode và dùng mapping:
+
+```text
+Left stick Y   → ga tiến/lùi
+Right stick X  → lái trái/phải
+START          → arm/disarm controller
+A / Cross      → dừng khẩn cấp và disarm
+```
+
+Cài driver và service một lần:
+
+```bash
+cd ~/Jetracer/JetRacer
+chmod +x deploy/install_gamepad_service.sh deploy/set_control_mode.sh
+./deploy/install_gamepad_service.sh
+```
+
+Nếu dùng USB, cắm controller rồi kiểm tra:
+
+```bash
+python3 gamepad_main.py --list
+```
+
+Nếu dùng Bluetooth, pair và trust controller bằng `bluetoothctl`, sau đó chuyển mode:
+
+```bash
+./deploy/set_control_mode.sh gamepad
+sudo journalctl -u jetracer-gamepad -f
+```
+
+Khi controller kết nối, nhấn `START` để arm. Xe luôn dừng khi mới kết nối, khi nhấn A, khi disarm hoặc khi controller mất kết nối.
+
+Quay lại giao diện web:
+
+```bash
+./deploy/set_control_mode.sh web
+```
+
+Hai service có cấu hình xung đột và không chạy đồng thời để tránh tranh chấp PCA9685/I2C.
+
+## Tự hành bám vạch
+
+Chế độ tự hành tự chọn detector vạch vàng/đen, xử lý vùng nhìn xa 260 pixel,
+lấy tâm near/far rồi đưa sai số chuẩn hóa qua PID. Góc vuông được nhận dạng từ
+hình chữ L và xử lý bằng state machine giảm tốc
+`FOLLOW -> APPROACH -> TURN -> FOLLOW`. Trước khi
+chạy phải tắt web và gamepad để giải phóng camera cùng phần cứng điều khiển:
+
+```bash
+sudo systemctl stop jetracer jetracer-gamepad
+python3 -m auto.main --dry-run
+```
+
+Khi telemetry nhận đúng vạch, nâng bánh xe lên khỏi mặt đất và thử ở ga 20%:
+
+```bash
+python3 -m auto.main --speed 0.20
+```
+
+Trong khi auto chạy, theo dõi camera đã đánh dấu vạch và toàn bộ telemetry tại:
+
+```text
+http://<IP-CUA-JETSON>:5001
+```
+
+Dashboard có nút dừng khẩn cấp và không mở thêm camera CSI; frame được chia sẻ
+trực tiếp từ vòng xử lý tự hành.
+
+Xe tự đưa ga về neutral khi mất vạch, camera lỗi, nhấn `Ctrl+C` hoặc process
+nhận SIGTERM. Xem toàn bộ cách hiệu chỉnh threshold, PID và chiều lái tại
+[`auto/README.md`](auto/README.md).
+
 ## Hiệu chỉnh
 
 Các thông số nằm trong `config.py`:
@@ -133,4 +210,3 @@ GET  /camera/stream
 - Không cấp nguồn servo trực tiếp từ chân nguồn yếu của Jetson.
 - Web API hiện dành cho mạng LAN tin cậy và chưa có xác thực người dùng.
 - Các file trong `tests/` là kiểm tra phần cứng và có thể làm servo hoặc động cơ chuyển động.
-

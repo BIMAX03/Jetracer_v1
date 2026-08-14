@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#071018">
+    <title>JetRacer · Camera Setup</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <main class="app-shell">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">JETRACER VISION LAB</p>
+                <h1>Căn góc camera</h1>
+            </div>
+            <div class="live-pill" id="live-pill">
+                <span class="live-dot"></span>
+                <span id="live-label">ĐANG KẾT NỐI</span>
+            </div>
+        </header>
+
+        <section class="layout">
+            <div class="viewer-card">
+                <div class="viewer" id="viewer">
+                    <img
+                        id="camera-stream"
+                        src="{{ url_for('stream') }}"
+                        alt="Luồng camera JetRacer"
+                    >
+
+                    <div class="zones" id="zones" aria-hidden="true">
+                        <div class="zone zone-far">
+                            <span>VÙNG XA · CHỌN HƯỚNG</span>
+                        </div>
+                        <div class="zone zone-middle">
+                            <span>VÙNG GIỮA · LẬP QUỸ ĐẠO</span>
+                        </div>
+                        <div class="zone zone-near">
+                            <span>VÙNG GẦN · TRÁNH VA CHẠM</span>
+                        </div>
+                    </div>
+
+                    <div class="crosshair" id="crosshair" aria-hidden="true">
+                        <span class="axis axis-x"></span>
+                        <span class="axis axis-y"></span>
+                        <span class="center-dot"></span>
+                    </div>
+
+                    <div class="distance-guides" id="distance-guides" aria-hidden="true">
+                        <div class="distance-line line-150"><span>150 cm</span></div>
+                        <div class="distance-line line-100"><span>100 cm</span></div>
+                        <div class="distance-line line-50"><span>50 cm</span></div>
+                        <div class="distance-line line-30"><span>30 cm</span></div>
+                        <div class="distance-line line-10"><span>10 cm</span></div>
+                    </div>
+
+                    <div class="camera-message" id="camera-message">
+                        Đang khởi động camera…
+                    </div>
+                </div>
+
+                <div class="viewer-footer">
+                    <span id="resolution">— × —</span>
+                    <span id="fps">— FPS</span>
+                    <span id="frame-age">FRAME —</span>
+                </div>
+            </div>
+
+            <aside class="control-card">
+                <section>
+                    <p class="section-kicker">HIỂN THỊ</p>
+                    <div class="button-grid">
+                        <button type="button" class="button is-active" id="toggle-zones">
+                            Vùng quan sát
+                        </button>
+                        <button type="button" class="button is-active" id="toggle-grid">
+                            Mốc khoảng cách
+                        </button>
+                        <button type="button" class="button is-active" id="toggle-center">
+                            Đường tâm
+                        </button>
+                        <button type="button" class="button" id="freeze">
+                            Đóng băng ảnh
+                        </button>
+                    </div>
+                </section>
+
+                <section>
+                    <label class="range-label" for="overlay-opacity">
+                        <span>Độ đậm lớp căn chỉnh</span>
+                        <output id="opacity-value">70%</output>
+                    </label>
+                    <input
+                        id="overlay-opacity"
+                        type="range"
+                        min="10"
+                        max="100"
+                        value="70"
+                    >
+                </section>
+
+                <section class="instructions">
+                    <p class="section-kicker">CÁCH SET GÓC</p>
+                    <ol>
+                        <li>Đặt băng dính trên sàn tại 10, 30, 50, 100 và 150 cm tính từ đầu xe.</li>
+                        <li>Chỉnh camera để thấy mốc 10 cm gần đáy ảnh và mốc 150 cm ở phần trên.</li>
+                        <li>Đặt xe trong hành lang; hai mép lối đi phải cùng xuất hiện trong ảnh.</li>
+                        <li>Đóng băng ảnh rồi chụp màn hình để so sánh sau mỗi lần chỉnh.</li>
+                    </ol>
+                </section>
+
+                <div class="safety-note">
+                    <strong>AN TOÀN</strong>
+                    Trang này không khởi tạo Servo hoặc ESC. Nên kê bánh xe khi đang chỉnh camera.
+                </div>
+            </aside>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
+

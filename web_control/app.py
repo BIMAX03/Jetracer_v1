@@ -11,10 +11,16 @@ main.py chỉ cần gọi create_app() rồi app.run().
 
 from flask import Flask
 
-from web.controller import CarController
-from web.api import api_bp, init_api
-from web.camera import camera_bp
-from web.routes import page_bp
+from web_control.controller import CarController
+from web_control.api import api_bp, init_api
+from web_control.camera import (
+    camera_bp,
+    ensure_camera_started,
+    wait_for_frame,
+)
+from web_control.data_collector import DataCollector
+from web_control.routes import page_bp
+import config
 
 
 def create_app() -> Flask:
@@ -31,9 +37,23 @@ def create_app() -> Flask:
 
     # ── Tạo controller (instance duy nhất cho toàn app) ──────────
     controller = CarController()
+    # ESC cần nhận neutral liên tục trước lệnh ga đầu tiên. Đây cũng đưa servo
+    # về giữa, giống trình tự trong tests/test_esc.py.
+    controller.arm(duration=config.ESC_ARM_SECONDS)
+    collector = DataCollector(
+        controller=controller,
+        frame_provider=wait_for_frame,
+        camera_starter=ensure_camera_started,
+        dataset_dir=config.DATASET_DIR,
+        normal_hz=config.DATASET_NORMAL_HZ,
+        curve_hz=config.DATASET_CURVE_HZ,
+    )
 
     # ── Inject controller vào api module ─────────────────────────
-    init_api(controller)
+    init_api(controller, collector)
+
+    # Cho main.py/tests có thể dừng recorder sạch trước khi thoát.
+    app.extensions["data_collector"] = collector
 
     # ── Đăng ký Blueprints ───────────────────────────────────────
     app.register_blueprint(api_bp)      # POST /api/steering, /api/throttle, /api/stop

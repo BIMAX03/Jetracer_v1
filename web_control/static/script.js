@@ -12,13 +12,22 @@
 
     // Tỉ lệ ga tương ứng với từng Gear (chế độ số)
     var GEAR_MULTIPLIERS = {
-        1: 0.35,  // Số 1: Ga tối đa 35% của giới hạn phần cứng
-        2: 0.65,  // Số 2: Ga tối đa 65% của giới hạn phần cứng
-        3: 1.00   // Số 3: Ga tối đa 100% của giới hạn phần cứng
+        1: 0.10,  // Số 1: ga nhẹ
+        2: 0.35,  // Số 2: ga trung bình
+        3: 0.50   // Số 3: khớp THROTTLE_LIMIT hiện tại
     };
 
     var isCruiseActive = false;
     var cruiseInterval = null;
+
+    // Chỉ cho phép một request điều khiển đang bay. Trong lúc chờ response,
+    // mọi pointermove chỉ ghi đè giá trị pending bằng lệnh mới nhất.
+    var controlInFlight = false;
+    var controlPending = false;
+    var emergencyPending = false;
+    var controlTimer = null;
+    var lastControlSentAt = 0;
+    var CONTROL_INTERVAL_MS = 50; // tối đa 20 request/giây
 
     /* ── DOM Elements ──────────────────────────────────────────── */
     var statusDot = document.getElementById("btn-wifi");
@@ -31,6 +40,14 @@
     
     // Nút khẩn cấp
     var btnBack = document.getElementById("btn-back");
+
+    // Thu thập dataset
+    var btnRecording = document.getElementById("btn-recording");
+    var btnCurveRate = document.getElementById("btn-curve-rate");
+    var recordingLabel = document.getElementById("recording-label");
+    var recordingStatus = document.getElementById("recording-status");
+    var isRecording = false;
+    var isCurveRate = false;
 
     // Chọn số (Gear)
     var gearButtons = {
@@ -79,31 +96,86 @@
     /* ── Gửi lệnh API ──────────────────────────────────────────── */
 
     function apiPost(endpoint, body) {
-        fetch(endpoint, {
+        return fetch(endpoint, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: body !== undefined ? JSON.stringify(body) : undefined
         })
-        .then(function (res) { return res.json(); })
-        .then(function (data) {
-            if (data.status === "ok") {
-                updateDashboard(data.steering, data.throttle);
-                setConnected(true);
-            }
+        .then(function (res) {
+            return res.json().then(function (data) {
+                if (!res.ok || data.status !== "ok") {
+                    throw new Error(data.message || "API request failed");
+                }
+                return data;
+            });
         })
-        .catch(function () {
+        .then(function (data) {
+            if (typeof data.steering === "number" && typeof data.throttle === "number") {
+                updateDashboard(data.steering, data.throttle);
+            }
+            setConnected(true);
+            return data;
+        })
+        .catch(function (err) {
             setConnected(false);
+            throw err;
         });
+    }
+
+    function finishControlRequest() {
+        controlInFlight = false;
+        scheduleControlFlush(emergencyPending);
+    }
+
+    function flushControl() {
+        controlTimer = null;
+        if (controlInFlight) return;
+
+        var endpoint;
+        var body;
+        if (emergencyPending) {
+            emergencyPending = false;
+            controlPending = false;
+            endpoint = "/api/stop";
+        } else if (controlPending) {
+            controlPending = false;
+            endpoint = "/api/control";
+            body = {
+                steering: currentSteering,
+                throttle: currentThrottle
+            };
+        } else {
+            return;
+        }
+
+        controlInFlight = true;
+        lastControlSentAt = Date.now();
+        apiPost(endpoint, body).then(
+            finishControlRequest,
+            finishControlRequest
+        );
+    }
+
+    function scheduleControlFlush(immediate) {
+        if (controlInFlight || controlTimer !== null) return;
+        var elapsed = Date.now() - lastControlSentAt;
+        var delay = immediate ? 0 : Math.max(0, CONTROL_INTERVAL_MS - elapsed);
+        controlTimer = setTimeout(flushControl, delay);
+    }
+
+    function queueLatestControl() {
+        controlPending = true;
+        scheduleControlFlush(false);
     }
 
     function sendSteering(val) {
         currentSteering = val;
-        apiPost("/api/steering", { value: val });
+        queueLatestControl();
     }
 
     function sendThrottle(val) {
         currentThrottle = val;
-        apiPost("/api/throttle", { value: val });
+        queueLatestControl();
     }
 
     function sendEmergencyStop() {
@@ -111,8 +183,85 @@
             toggleCruise(false);
         }
         resetThrottleSlider(false);
-        apiPost("/api/stop");
+        currentSteering = 0.0;
+        currentThrottle = 0.0;
+        emergencyPending = true;
+        controlPending = false;
+        if (controlTimer !== null) {
+            clearTimeout(controlTimer);
+            controlTimer = null;
+        }
+        scheduleControlFlush(true);
     }
+
+    function renderRecordingStatus(data) {
+        isRecording = Boolean(data.recording);
+        isCurveRate = Boolean(data.curve_mode);
+        btnRecording.classList.toggle("active", isRecording);
+        btnCurveRate.classList.toggle("active", isCurveRate);
+        btnCurveRate.disabled = !isRecording;
+        btnCurveRate.setAttribute("aria-pressed", isCurveRate ? "true" : "false");
+        recordingLabel.textContent = isRecording ? "DỪNG GHI" : "BẮT ĐẦU GHI";
+
+        if (data.error) {
+            recordingStatus.textContent = "LỖI: " + data.error;
+            recordingStatus.classList.add("error");
+        } else if (isRecording) {
+            recordingStatus.textContent = data.sample_count + " FRAME · " + data.rate_hz + " HZ";
+            recordingStatus.classList.remove("error");
+        } else if (data.session_id) {
+            recordingStatus.textContent = "ĐÃ LƯU " + data.sample_count + " FRAME";
+            recordingStatus.classList.remove("error");
+        } else {
+            recordingStatus.textContent = "CHƯA GHI";
+            recordingStatus.classList.remove("error");
+        }
+    }
+
+    function refreshRecordingStatus() {
+        fetch("/api/recording/status", { cache: "no-store" })
+            .then(function (res) { return res.json(); })
+            .then(renderRecordingStatus)
+            .catch(function () {});
+    }
+
+    btnRecording.addEventListener("click", function () {
+        btnRecording.disabled = true;
+        apiPost(isRecording ? "/api/recording/stop" : "/api/recording/start")
+            .then(renderRecordingStatus)
+            .catch(function (err) {
+                recordingStatus.textContent = err.message;
+                recordingStatus.classList.add("error");
+            })
+            .then(function () { btnRecording.disabled = false; });
+    });
+
+    function requestCurveRateToggle() {
+        if (btnCurveRate.disabled) return;
+        btnCurveRate.disabled = true;
+        apiPost("/api/recording/rate", { curve_mode: !isCurveRate })
+            .then(renderRecordingStatus)
+            .catch(function (err) {
+                recordingStatus.textContent = err.message;
+                recordingStatus.classList.add("error");
+            })
+            .then(function () { btnCurveRate.disabled = !isRecording; });
+    }
+
+    // Xử lý ngay khi ngón thứ hai chạm xuống. Sự kiện click thường bị mobile
+    // browser hủy nếu ngón thứ nhất vẫn đang giữ native range input của cần ga.
+    btnCurveRate.addEventListener("pointerdown", function (e) {
+        e.preventDefault();
+        requestCurveRateToggle();
+    });
+
+    // click với detail=0 là thao tác bàn phím/accessibility, không phải pointer.
+    btnCurveRate.addEventListener("click", function (e) {
+        if (e.detail === 0) requestCurveRateToggle();
+    });
+
+    refreshRecordingStatus();
+    setInterval(refreshRecordingStatus, 1000);
 
     /* ── Thiết lập kết nối ──────────────────────────────────────── */
     function setConnected(connected) {

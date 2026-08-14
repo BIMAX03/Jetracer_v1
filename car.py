@@ -53,9 +53,17 @@ class Car:
             freq=config.THROTTLE_FREQ,
             min_pulse_us=config.THROTTLE_MIN_PULSE_US,
             max_pulse_us=config.THROTTLE_MAX_PULSE_US,
+            neutral_pulse_us=config.THROTTLE_NEUTRAL_PULSE_US,
+            forward_start_pulse_us=config.THROTTLE_FORWARD_START_PULSE_US,
+            reverse_start_pulse_us=config.THROTTLE_REVERSE_START_PULSE_US,
             gain=config.THROTTLE_GAIN,
             offset=config.THROTTLE_OFFSET
         )
+
+    def arm(self, duration: float = 2.0) -> None:
+        """Giữ ga neutral đủ lâu để ESC hoàn tất trình tự khởi động."""
+        self._servo.center()
+        self._esc.arm(duration=duration)
 
     def steering(self, value: float) -> None:
         """Điều khiển lái.
@@ -83,3 +91,17 @@ class Car:
         """Dừng khẩn cấp — ga về 0 VÀ lái về giữa ngay lập tức."""
         self._esc.neutral()
         self._servo.center()
+
+    @property
+    def throttle_pulse_us(self):
+        """Xung ga thực tế gần nhất, dùng cho telemetry/debug."""
+        return self._esc.pulse_us
+
+    @property
+    def steering_pulse_us(self):
+        """Xung lái thực tế gần nhất, dùng cho telemetry/debug."""
+        return self._servo.pulse_us
+
+    @property
+    def armed(self):
+        return self._esc.armed

@@ -1,6 +1,7 @@
 """MJPEG stream dùng chung cho camera CSI của Jetson."""
 
 import threading
+import time
 
 from flask import Blueprint, Response, jsonify, stream_with_context
 
@@ -16,6 +17,7 @@ camera_bp = Blueprint("camera", __name__, url_prefix="/camera")
 _start_lock = threading.Lock()
 _frame_condition = threading.Condition()
 _latest_jpeg = None
+_latest_timestamp = None
 _frame_number = 0
 _camera_running = False
 _capture = None
@@ -48,13 +50,15 @@ def _open_camera():
 
 def _capture_frames(capture):
     """Đọc và encode camera trong một background thread duy nhất."""
-    global _latest_jpeg, _frame_number, _camera_running, _capture, _camera_worker
+    global _latest_jpeg, _latest_timestamp, _frame_number
+    global _camera_running, _capture, _camera_worker
 
     try:
         while not _stop_event.is_set():
             ok, frame = capture.read()
             if not ok or frame is None:
                 break
+            frame_timestamp = time.time()
 
             encoded, jpeg = cv2.imencode(
                 ".jpg",
@@ -66,6 +70,8 @@ def _capture_frames(capture):
 
             with _frame_condition:
                 _latest_jpeg = jpeg.tobytes()
+                # Epoch timestamp của frame, dùng để kiểm tra đồng bộ dataset.
+                _latest_timestamp = frame_timestamp
                 _frame_number += 1
                 _frame_condition.notify_all()
     finally:
@@ -100,6 +106,34 @@ def _ensure_camera_started():
         _camera_worker = worker
         worker.start()
         return True
+
+
+def ensure_camera_started():
+    """Public wrapper để bộ thu thập có thể chạy dù chưa mở MJPEG stream."""
+    if cv2 is None:
+        return False
+    return _ensure_camera_started()
+
+
+def wait_for_frame(after_frame_number=None, timeout=2.0):
+    """Chờ một camera frame mới và trả ``(number, jpeg, timestamp)``.
+
+    ``after_frame_number`` giúp recorder không bao giờ ghi lặp lại cùng một
+    frame khi producer camera bị chậm.
+    """
+    with _frame_condition:
+        ready = _frame_condition.wait_for(
+            lambda: (
+                _latest_jpeg is not None
+                and (after_frame_number is None or _frame_number != after_frame_number)
+            ) or not _camera_running,
+            timeout=timeout,
+        )
+        if not ready or _latest_jpeg is None:
+            return None
+        if after_frame_number is not None and _frame_number == after_frame_number:
+            return None
+        return _frame_number, _latest_jpeg, _latest_timestamp
 
 
 def shutdown_camera():

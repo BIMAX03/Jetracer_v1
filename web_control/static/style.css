@@ -129,6 +129,43 @@ html, body {
     gap: 20px;
 }
 
+.top-right,
+.recording-controls {
+    display: flex;
+    align-items: center;
+}
+
+.top-right { gap: 14px; }
+.recording-controls { gap: 6px; }
+
+.recording-btn,
+.curve-rate-btn {
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid rgba(255, 201, 40, .42);
+    border-radius: 6px;
+    background: rgba(18, 4, 4, .82);
+    color: #fff2d0;
+    font-size: .66rem;
+    font-weight: 800;
+    letter-spacing: .5px;
+    cursor: pointer;
+    touch-action: none;
+}
+
+.recording-btn { display: flex; align-items: center; gap: 6px; }
+.recording-dot { width: 8px; height: 8px; border-radius: 50%; background: #777; }
+.recording-btn.active { border-color: #ff3b30; box-shadow: 0 0 9px rgba(255, 59, 48, .48); }
+.recording-btn.active .recording-dot { background: #ff3b30; animation: recordingPulse 1s infinite; }
+.curve-rate-btn.active { background: #b06e00; border-color: #ffc928; color: #fff; }
+.curve-rate-btn:disabled { cursor: default; opacity: .4; }
+.recording-status { min-width: 95px; color: #ffc928; font: 700 .62rem monospace; }
+.recording-status.error { max-width: 180px; color: #ff625b; }
+
+@keyframes recordingPulse {
+    50% { opacity: .3; box-shadow: 0 0 10px #ff3b30; }
+}
+
 .nav-back-btn {
     background: transparent;
     border: none;

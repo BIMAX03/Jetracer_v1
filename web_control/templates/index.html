@@ -60,6 +60,16 @@
             </div>
             
             <div class="top-right">
+                <div class="recording-controls" aria-label="Thu thập dữ liệu lái xe">
+                    <button id="btn-recording" class="recording-btn" type="button">
+                        <span class="recording-dot" aria-hidden="true"></span>
+                        <span id="recording-label">BẮT ĐẦU GHI</span>
+                    </button>
+                    <button id="btn-curve-rate" class="curve-rate-btn" type="button" aria-pressed="false" disabled>
+                        CUA 15 HZ
+                    </button>
+                    <span id="recording-status" class="recording-status">CHƯA GHI</span>
+                </div>
                 <!-- Chế độ tốc độ (Gear select) dạng LED -->
                 <div class="gear-selector">
                     <button id="gear-1" class="gear-btn active" data-gear="1">
@@ -200,6 +210,6 @@
 
     </main>
 
-    <script src="{{ url_for('pages.static', filename='script.js') }}"></script>
+    <script src="{{ url_for('pages.static', filename='script.js', v='multitouch-3') }}"></script>
 </body>
 </html>

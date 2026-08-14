@@ -15,7 +15,7 @@ throttle = ESC(
 
 print("Đưa ESC về mức trung tính (0.0)...")
 throttle.neutral()
-time.sleep(1) 
+time.sleep(3) 
 
 print("Tiến (0.4) trong 3 giây...")
 throttle.write(0.4)
