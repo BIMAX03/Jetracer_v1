@@ -19,7 +19,6 @@ Web UI (Điện thoại/PC) ---> HTTP API (Flask Server) ---> CarController --->
 *   **Khởi động an toàn (Arming ESC)**: Khi Flask server khởi động, `CarController` sẽ tự động thực hiện tiến trình `arm()` trong 3 giây để cấp xung trung lập (`1500 µs`) liên tục cho ESC, giúp mở khóa (unlock) ESC trước khi xe có thể di chuyển.
 *   **Giới hạn an toàn (Safety Clamp)**:
     *   Mọi giá trị ga và lái gửi từ Web đều được giới hạn tự động bằng tham số cấu hình `STEERING_LIMIT` và `THROTTLE_LIMIT` trong [config.py](file:///home/baymax/code/github/Jetracer_v1/config.py) trước khi ghi xuống thanh ghi PWM.
-    *   Hỗ trợ nút **Dừng khẩn cấp (Emergency Stop)** gọi API `/api/stop` để ép ga về `0` và đưa bánh lái về thẳng ngay lập tức (`center(immediate=True)`).
 
 ---
 

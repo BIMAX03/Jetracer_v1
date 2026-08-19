@@ -1,0 +1,48 @@
+"""Module bộ điều khiển PID (Proportional-Integral-Derivative Controller).
+
+Chứa lớp `PIDController` dùng để tính toán giá trị góc lái phản hồi nhằm
+giảm thiểu sai số lệch tâm của xe so với line.
+"""
+
+
+class PIDController:
+    """Lớp điều khiển phản hồi PID độc lập."""
+
+    def __init__(self, kp: float, ki: float, kd: float, output_limits: tuple[float, float] = (-1.0, 1.0)) -> None:
+        """Khởi tạo các hệ số PID và giới hạn đầu ra.
+
+        Args:
+            kp: Hệ số tỉ lệ (Proportional).
+            ki: Hệ số tích phân (Integral).
+            kd: Hệ số đạo hàm (Derivative).
+            output_limits: Giới hạn giá trị trả về (min, max).
+        """
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
+        self.min_val, self.max_val = output_limits
+
+        self._prev_error = 0.0
+        self._integral = 0.0
+
+    def compute(self, error: float, dt: float) -> float:
+        """Tính toán đầu ra dựa trên sai số và khoảng thời gian chu kỳ.
+
+        Args:
+            error: Sai số hiện tại (lệch tâm).
+            dt: Khoảng thời gian từ lần tính trước (giây).
+
+        Returns:
+            Giá trị điều khiển (ví dụ: góc lái) đã được giới hạn.
+        """
+        # TODO: Implement proportional term
+        # TODO: Implement integral term with anti-windup clamping
+        # TODO: Implement derivative term
+        # TODO: Return clamped sum
+        pass
+
+    def reset(self) -> None:
+        """Đặt lại các biến trạng thái tích phân và sai số cũ."""
+        self._prev_error = 0.0
+        self._integral = 0.0
+        pass
