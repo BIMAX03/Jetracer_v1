@@ -5,10 +5,13 @@ giảm thiểu sai số lệch tâm của xe so với line.
 """
 
 
+from typing import Tuple
+
+
 class PIDController:
     """Lớp điều khiển phản hồi PID độc lập."""
 
-    def __init__(self, kp: float, ki: float, kd: float, output_limits: tuple[float, float] = (-1.0, 1.0)) -> None:
+    def __init__(self, kp: float, ki: float, kd: float, output_limits: Tuple[float, float] = (-1.0, 1.0)) -> None:
         """Khởi tạo các hệ số PID và giới hạn đầu ra.
 
         Args:

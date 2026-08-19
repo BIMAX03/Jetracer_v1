@@ -88,9 +88,26 @@
             cameraRetryTimer = setTimeout(function () {
                 cameraRetryTimer = null;
                 cameraStatus.textContent = "CAMERA RECONNECTING";
-                cameraFeed.src = "/camera/stream?t=" + Date.now();
+                cameraFeed.src = "/camera/stream?mode=" + currentCameraMode + "&t=" + Date.now();
             }, 2000);
         }
+    });
+
+    // Chuyển đổi chế độ camera (RAW, LINE DEBUG, HSV MASK)
+    var currentCameraMode = "raw";
+    var camModeButtons = document.querySelectorAll(".cam-mode-btn");
+    camModeButtons.forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            var mode = this.getAttribute("data-mode");
+            if (mode === currentCameraMode) return;
+
+            currentCameraMode = mode;
+            camModeButtons.forEach(function (b) { b.classList.remove("active"); });
+            this.classList.add("active");
+
+            var url = "/camera/stream?mode=" + mode + "&t=" + Date.now();
+            cameraFeed.src = url;
+        });
     });
 
     /* ── Gửi lệnh API ──────────────────────────────────────────── */

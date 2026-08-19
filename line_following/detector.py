@@ -7,6 +7,7 @@ line so với tâm xe.
 
 import cv2
 import numpy as np
+from typing import Tuple
 
 from line_following import config
 
@@ -25,7 +26,7 @@ class LineDetector:
         self.lower_color = lower_color
         self.upper_color = upper_color
 
-    def get_line_error(self, frame: np.ndarray) -> tuple[float, np.ndarray, np.ndarray]:
+    def get_line_error(self, frame: np.ndarray) -> Tuple[float, np.ndarray, np.ndarray]:
         """Tính toán sai số lệch tâm của line so với xe.
 
         Args:
@@ -78,7 +79,7 @@ class LineDetector:
 
         return error, mask, debug_frame
 
-    def check_sharp_turn(self, mask: np.ndarray) -> tuple[int, float]:
+    def check_sharp_turn(self, mask: np.ndarray) -> Tuple[int, float]:
         """Phát hiện các góc cua vuông hoặc cua gấp đột ngột khi line đi ngang.
 
         Args:
@@ -93,7 +94,7 @@ class LineDetector:
         return self._right_angle_hint(mask, w // 2)
 
     @staticmethod
-    def _right_angle_hint(mask: np.ndarray, center_x: int) -> tuple[int, float]:
+    def _right_angle_hint(mask: np.ndarray, center_x: int) -> Tuple[int, float]:
         """Phát hiện các góc cua vuông hoặc cua gấp đột ngột khi line đi ngang.
 
         Args:

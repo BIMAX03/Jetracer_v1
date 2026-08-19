@@ -20,7 +20,7 @@ ROI_START_ROW_PCT = 0.5  # Bắt đầu lấy từ 50% chiều cao ảnh xuống
 SCAN_LINE_Y_PCT = 0.6    # Nằm ở 60% chiều cao của vùng ROI
 
 # --- Cấu hình bộ điều khiển PID ---
-KP = 1.2
+KP = 1.20
 KI = 0.0
 KD = 0.15
 

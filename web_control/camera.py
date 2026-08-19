@@ -17,12 +17,14 @@ camera_bp = Blueprint("camera", __name__, url_prefix="/camera")
 _start_lock = threading.Lock()
 _frame_condition = threading.Condition()
 _latest_jpeg = None
+_latest_bgr_frame = None
 _latest_timestamp = None
 _frame_number = 0
 _camera_running = False
 _capture = None
 _camera_worker = None
 _stop_event = threading.Event()
+_detector = None
 
 
 def gstreamer_pipeline():
@@ -48,9 +50,88 @@ def _open_camera():
     return capture
 
 
+def _get_detector():
+    """Tải hoặc cập nhật instance của LineDetector từ line_following."""
+    global _detector
+    if _detector is None:
+        try:
+            from line_following import config
+            from line_following.detector import LineDetector
+            _detector = LineDetector(config.LOWER_YELLOW, config.UPPER_YELLOW)
+        except Exception:
+            _detector = None
+    else:
+        try:
+            from line_following import config
+            _detector.lower_color = config.LOWER_YELLOW
+            _detector.upper_color = config.UPPER_YELLOW
+        except Exception:
+            pass
+    return _detector
+
+
+def _process_debug_frame(frame, mode):
+    """Vẽ overlay thông số dò line (ROI, Scan line, Error) hoặc xuất HSV Mask."""
+    detector = _get_detector()
+    if detector is None:
+        return frame
+
+    try:
+        from line_following import config
+        error, mask, _ = detector.get_line_error(frame)
+
+        if mode == "mask":
+            return cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
+
+        # Mode debug: Overlay trực quan thông số lên ảnh full
+        debug_img = frame.copy()
+        h, w, _ = debug_img.shape
+
+        # 1. Vẽ khung ROI
+        roi_start_y = int(h * config.ROI_START_ROW_PCT)
+        cv2.rectangle(debug_img, (0, roi_start_y), (w - 1, h - 1), (0, 255, 255), 2)
+        cv2.putText(debug_img, "ROI", (10, roi_start_y - 8),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+
+        # 2. Vẽ đường quét Scan Line
+        roi_h = h - roi_start_y
+        scan_line_y = roi_start_y + int(roi_h * config.SCAN_LINE_Y_PCT)
+        cv2.line(debug_img, (0, scan_line_y), (w, scan_line_y), (0, 255, 0), 2)
+
+        # 3. Vẽ đường tâm xe
+        center_x = w // 2
+        cv2.line(debug_img, (center_x, roi_start_y), (center_x, h), (255, 0, 0), 1)
+
+        # 4. Vẽ kết quả dò vạch
+        if error is not None:
+            line_center_x = int(center_x + error * (w / 2.0))
+            cv2.circle(debug_img, (line_center_x, scan_line_y), 10, (0, 0, 255), -1)
+            cv2.line(debug_img, (center_x, scan_line_y), (line_center_x, scan_line_y), (0, 0, 255), 2)
+            status_text = "Error: {:+.2f}".format(error)
+            text_color = (0, 255, 0)
+        else:
+            direction, confidence = detector.check_sharp_turn(mask)
+            if confidence > 0.25:
+                turn_str = "LEFT" if direction < 0 else "RIGHT"
+                status_text = "SHARP TURN: {}".format(turn_str)
+                text_color = (0, 165, 255)
+            else:
+                status_text = "LINE LOST!"
+                text_color = (0, 0, 255)
+
+        # Khung nền đen cho text dễ xem
+        cv2.rectangle(debug_img, (10, 10), (280, 50), (0, 0, 0), -1)
+        cv2.putText(debug_img, status_text, (20, 38),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.75, text_color, 2)
+
+        return debug_img
+    except Exception:
+        return frame
+
+
 def _capture_frames(capture):
     """Đọc và encode camera trong một background thread duy nhất."""
-    global _latest_jpeg, _latest_timestamp, _frame_number
+    global _latest_jpeg, _latest_bgr_frame, _latest_timestamp, _frame_number
     global _camera_running, _capture, _camera_worker
 
     try:
@@ -69,8 +150,8 @@ def _capture_frames(capture):
                 continue
 
             with _frame_condition:
+                _latest_bgr_frame = frame
                 _latest_jpeg = jpeg.tobytes()
-                # Epoch timestamp của frame, dùng để kiểm tra đồng bộ dataset.
                 _latest_timestamp = frame_timestamp
                 _frame_number += 1
                 _frame_condition.notify_all()
@@ -85,7 +166,7 @@ def _capture_frames(capture):
 
 def _ensure_camera_started():
     """Mở Argus một lần, kể cả khi nhiều client kết nối đồng thời."""
-    global _latest_jpeg, _camera_running, _capture, _camera_worker
+    global _latest_jpeg, _latest_bgr_frame, _camera_running, _capture, _camera_worker
 
     with _start_lock:
         if _camera_running:
@@ -97,6 +178,7 @@ def _ensure_camera_started():
 
         with _frame_condition:
             _latest_jpeg = None
+            _latest_bgr_frame = None
             _camera_running = True
             _capture = capture
             _stop_event.clear()
@@ -136,6 +218,14 @@ def wait_for_frame(after_frame_number=None, timeout=2.0):
         return _frame_number, _latest_jpeg, _latest_timestamp
 
 
+def get_latest_bgr_frame():
+    """Lấy trực tiếp mảng BGR ndarray mới nhất từ camera."""
+    with _frame_condition:
+        if _latest_bgr_frame is None:
+            return None
+        return _latest_bgr_frame.copy()
+
+
 def shutdown_camera():
     """Dừng producer và nhả Argus sạch trước khi tiến trình thoát."""
     global _camera_running, _capture, _camera_worker
@@ -162,7 +252,7 @@ def shutdown_camera():
         _frame_condition.notify_all()
 
 
-def _generate_frames():
+def _generate_frames(mode="raw"):
     """Mỗi client chờ frame mới nhưng không tự mở thêm camera."""
     last_frame_number = -1
 
@@ -178,16 +268,31 @@ def _generate_frames():
                     break
                 continue
 
-            jpeg = _latest_jpeg
+            bgr_frame = _latest_bgr_frame
+            raw_jpeg = _latest_jpeg
             last_frame_number = _frame_number
 
-        if jpeg is None:
+        if bgr_frame is None and raw_jpeg is None:
+            continue
+
+        if mode in ("debug", "mask") and bgr_frame is not None:
+            processed = _process_debug_frame(bgr_frame, mode)
+            ok, encoded_jpeg = cv2.imencode(
+                ".jpg",
+                processed,
+                [int(cv2.IMWRITE_JPEG_QUALITY), 70],
+            )
+            jpeg_bytes = encoded_jpeg.tobytes() if ok else raw_jpeg
+        else:
+            jpeg_bytes = raw_jpeg
+
+        if jpeg_bytes is None:
             continue
 
         yield (
             b"--frame\r\n"
             b"Content-Type: image/jpeg\r\n\r\n" +
-            jpeg +
+            jpeg_bytes +
             b"\r\n"
         )
 
@@ -195,6 +300,7 @@ def _generate_frames():
 @camera_bp.route("/stream")
 def stream():
     """Phát cùng một camera tới nhiều thẻ img dưới dạng MJPEG."""
+    from flask import request
     if cv2 is None:
         return jsonify({
             "status": "error",
@@ -207,8 +313,10 @@ def stream():
             "message": "Cannot open CSI camera",
         }), 503
 
+    mode = request.args.get("mode", "raw").lower()
+
     response = Response(
-        stream_with_context(_generate_frames()),
+        stream_with_context(_generate_frames(mode=mode)),
         mimetype="multipart/x-mixed-replace; boundary=frame",
     )
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
