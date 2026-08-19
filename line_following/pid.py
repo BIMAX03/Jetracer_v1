@@ -35,11 +35,34 @@ class PIDController:
         Returns:
             Giá trị điều khiển (ví dụ: góc lái) đã được giới hạn.
         """
-        # TODO: Implement proportional term
-        # TODO: Implement integral term with anti-windup clamping
-        # TODO: Implement derivative term
-        # TODO: Return clamped sum
-        pass
+        if dt <= 0.0:
+            return 0.0
+
+        # Proportional term
+        p_term = self.kp * error
+
+        # Integral term with clamping anti-windup
+        self._integral += error * dt
+        if self.ki != 0.0:
+            # Simple clamping anti-windup: limit integration when output saturates
+            # Limit integral term based on other contributions
+            d_term_approx = self.kd * (error - self._prev_error) / dt
+            max_i = (self.max_val - p_term - d_term_approx) / self.ki
+            min_i = (self.min_val - p_term - d_term_approx) / self.ki
+            if min_i > max_i:
+                min_i, max_i = max_i, min_i
+            self._integral = max(min_i, min(max_i, self._integral))
+            i_term = self.ki * self._integral
+        else:
+            i_term = 0.0
+
+        # Derivative term
+        d_term = self.kd * (error - self._prev_error) / dt
+        self._prev_error = error
+
+        # Compute output and clamp to limits
+        output = p_term + i_term + d_term
+        return max(self.min_val, min(self.max_val, output))
 
     def reset(self) -> None:
         """Đặt lại các biến trạng thái tích phân và sai số cũ."""

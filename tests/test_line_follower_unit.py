@@ -5,7 +5,7 @@ import unittest
 try:
     import cv2  # noqa: F401
     import numpy as np
-    from JetRacer.tu_chay_theo_line.line_detector import YellowLineDetector
+    from line_following.detector import LineDetector as YellowLineDetector
     VISION_AVAILABLE = True
 except ImportError:
     VISION_AVAILABLE = False
