@@ -9,6 +9,16 @@ import time
 from car import Car
 
 
+class _SilentLogger:
+    """Fallback khi thiếu structlog — pilot vẫn chạy bình thường."""
+
+    def info(self, *args, **kwargs):
+        pass
+
+    def warning(self, *args, **kwargs):
+        pass
+
+
 class LineFollowingPilot:
     """Vòng lặp điều khiển lái tự động theo line (Autopilot)."""
 
@@ -36,12 +46,21 @@ class LineFollowingPilot:
                 dò line lên trình duyệt mỗi vòng lặp.
         """
         self._running = True
-        self.car.arm()  # Kích hoạt động cơ
-        self.pid.reset()
 
-        import structlog
-        logger = structlog.get_logger()
-        logger.info("line_following_pilot_started", base_throttle=self.base_throttle)
+        try:
+            import structlog
+            logger = structlog.get_logger()
+        except ImportError:
+            logger = _SilentLogger()
+
+        try:
+            logger.info("line_following_pilot_started", base_throttle=self.base_throttle)
+            self.car.arm()  # Kích hoạt động cơ
+            self.pid.reset()
+        except BaseException:
+            # Ctrl+C/exception trong lúc arm cũng phải dừng động cơ ngay
+            self.stop()
+            raise
 
         interval = 1.0 / 20.0  # Mặc định 20 Hz
         try:
@@ -50,20 +69,22 @@ class LineFollowingPilot:
         except ImportError:
             pass
 
-        last_time = time.monotonic()
-        start_time = time.monotonic()
-        frames_ok = 0
-        empty_frames = 0
-        line_hits = 0
-        last_empty_warn = 0.0
-        last_stats_log = 0.0
-        last_render_time = time.monotonic()
         try:
+            last_time = time.monotonic()
+            start_time = time.monotonic()
+            frames_ok = 0
+            empty_frames = 0
+            line_hits = 0
+            last_empty_warn = 0.0
+            last_stats_log = 0.0
+            last_render_time = time.monotonic()
             while self._running:
                 start_loop = time.monotonic()
                 frame = camera.read()
                 if frame is None:
                     empty_frames += 1
+                    # Không giữ ga cũ — đứng yên chờ camera trả frame trở lại
+                    self.car.stop()
                     now = time.monotonic()
                     if now - last_empty_warn >= 1.0:
                         logger.warning(
@@ -200,7 +221,6 @@ class LineFollowingPilot:
         """Dừng khẩn cấp và tắt động cơ an toàn."""
         self._running = False
         self.car.stop()
-        pass
 
 
 if __name__ == "__main__":
@@ -240,6 +260,7 @@ if __name__ == "__main__":
     try:
         pilot.run(camera, debug_streamer=streamer)
     finally:
+        car.stop()
         camera.release()
         if streamer is not None:
             streamer.stop()
