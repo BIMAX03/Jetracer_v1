@@ -27,6 +27,7 @@ class PIDController:
 
         self._prev_error = 0.0
         self._integral = 0.0
+        self._last_terms = {"p": 0.0, "i": 0.0, "d": 0.0}
 
     def compute(self, error: float, dt: float) -> float:
         """Tính toán đầu ra dựa trên sai số và khoảng thời gian chu kỳ.
@@ -65,7 +66,18 @@ class PIDController:
 
         # Compute output and clamp to limits
         output = p_term + i_term + d_term
+        self._last_terms = {
+            "p": p_term,
+            "i": i_term,
+            "d": d_term,
+            "error": error,
+        }
         return max(self.min_val, min(self.max_val, output))
+
+    @property
+    def last_terms(self) -> dict:
+        """Các thành phần P/I/D của lần compute() gần nhất (dùng cho debug)."""
+        return dict(self._last_terms)
 
     def reset(self) -> None:
         """Đặt lại các biến trạng thái tích phân và sai số cũ."""

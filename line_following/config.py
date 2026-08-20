@@ -31,3 +31,14 @@ MAX_STEERING_LIMIT = 1.0 # Giới hạn góc lái tối đa
 # --- Thiết lập camera & Vòng lặp ---
 CAMERA_DEVICE_ID = 0
 LOOP_HZ = 20             # Tần số xử lý (Hz)
+
+# --- Luồng debug trực quan (Dashboard web trên trình duyệt) ---
+# Bật để xem ảnh camera + toàn bộ chỉ số + đồ thị realtime tại:
+#     http://<IP-JETSON>:<port>/dashboard   ← dashboard đầy đủ (khuyến nghị)
+#     http://<IP-JETSON>:<port>/            ← chỉ luồng MJPEG video
+# khi pilot đang chạy (không chiếm cổng 5000 của web_control).
+DEBUG_STREAM_ENABLED = True
+DEBUG_STREAM_HOST = "0.0.0.0"
+DEBUG_STREAM_PORT = 5001
+DEBUG_STREAM_FPS = 20      # Tần số publish frame lên trình duyệt
+DEBUG_STREAM_JPEG_QUALITY = 70

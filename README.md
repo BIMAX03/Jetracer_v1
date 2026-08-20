@@ -128,12 +128,23 @@ Trước khi chạy hệ thống Web hoặc Autopilot, hãy tiến hành chạy 
 
 ### Bước 6: Khởi chạy lái tự động (Autopilot)
 1.  Đảm bảo xe vẫn đang đặt trên giá đỡ an toàn.
-2.  Chạy chương trình tự hành:
+2.  **Tắt web service trước** — camera CSI chỉ mở được bởi một tiến trình duy nhất, nếu web_control đang chạy thì pilot không nhận được frame nào và xe sẽ đứng yên:
     ```bash
-    python3 -m auto_car.autopilot
+    sudo systemctl stop jetracer
+    sudo ss -ltnp | grep ':5000 '    # phải không có kết quả (cổng 5000 đã trống)
     ```
-3.  Quan sát phản ứng của bánh lái khi bạn di chuyển sa bàn hoặc vật cản trước camera. Khi xác nhận phản ứng của Servo là chính xác (xoay sang trái khi vạch kẻ làn lệch sang phải, và ngược lại), bạn có thể đặt xe xuống sa bàn thật để chạy.
-4.  Để dừng xe lập tức, nhấn `Ctrl+C` trong terminal. Chương trình sẽ tự động đưa Servo lái về chính giữa và dừng ga (ESC ga về neutral).
+3.  Chạy chương trình tự hành:
+    ```bash
+    python3 -m line_following.pilot
+    ```
+4.  **Quan sát trực quan khi xe đang chạy**: mở trình duyệt (điện thoại/máy tính cùng WiFi) tại
+    ```
+    http://<IP-JETSON>:5001/dashboard
+    ```
+    Dashboard hiển thị: ảnh camera kèm overlay (trạng thái LINE OK / CUA TRÁI·PHẢI / LINE LOST, error, steering, throttle, P/I/D, Hz, frame, mặt nạ HSV), đồ thị cuộn 15s của error/steering/throttle và các thành phần PID, thanh gauge lái/ga, số frame rỗng (camera bị chiếm) và uptime. Nếu chỉ cần xem video thuần, mở `http://<IP-JETSON>:5001/`.
+5.  Quan sát phản ứng của bánh lái khi bạn di chuyển sa bàn hoặc vật cản trước camera. Khi xác nhận phản ứng của Servo là chính xác (xoay sang trái khi vạch kẻ làn lệch sang phải, và ngược lại), bạn có thể đặt xe xuống sa bàn thật để chạy.
+6.  Để dừng xe lập tức, nhấn `Ctrl+C` trong terminal. Chương trình sẽ tự động đưa Servo lái về chính giữa và dừng ga (ESC ga về neutral).
+7.  Mỗi 5 giây pilot in log `pilot_status` (số frame nhận được, số lần nhận diện được vạch, giá trị lái/ga đang gửi). Nếu `line_hits` luôn bằng 0 mà `frames_ok` tăng, vạch vàng chưa được lọc đúng — hãy chạy `python3 -m line_following.calibrate` để tinh chỉnh dải HSV.
 
 ---
 

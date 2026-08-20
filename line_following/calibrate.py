@@ -119,6 +119,16 @@ MAX_STEERING_LIMIT = {config.MAX_STEERING_LIMIT} # Giới hạn góc lái tối 
 # --- Thiết lập camera & Vòng lặp ---
 CAMERA_DEVICE_ID = {config.CAMERA_DEVICE_ID}
 LOOP_HZ = {config.LOOP_HZ}             # Tần số xử lý (Hz)
+
+# --- Luồng debug trực quan (MJPEG trên trình duyệt) ---
+# Bật để xem ảnh camera + thông số theo thời gian thực tại:
+#     http://<IP-JETSON>:<port>
+# khi pilot đang chạy (không chiếm cổng 5000 của web_control).
+DEBUG_STREAM_ENABLED = {config.DEBUG_STREAM_ENABLED}
+DEBUG_STREAM_HOST = "{config.DEBUG_STREAM_HOST}"
+DEBUG_STREAM_PORT = {config.DEBUG_STREAM_PORT}
+DEBUG_STREAM_FPS = {config.DEBUG_STREAM_FPS}      # Tần số publish frame lên trình duyệt
+DEBUG_STREAM_JPEG_QUALITY = {config.DEBUG_STREAM_JPEG_QUALITY}
 """
             with open(config_path, "w", encoding="utf-8") as f:
                 f.write(config_content)

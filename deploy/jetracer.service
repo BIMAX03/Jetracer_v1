@@ -1,0 +1,16 @@
+[Unit]
+Description=JetRacer Web Remote Control (web_control)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jet-ai-lab
+WorkingDirectory=/home/jet-ai-lab/Jetracer/JetRacer_1/Jetracer_v1
+ExecStart=/usr/bin/python3 main.py
+Restart=always
+RestartSec=3
+KillSignal=SIGINT
+
+[Install]
+WantedBy=multi-user.target

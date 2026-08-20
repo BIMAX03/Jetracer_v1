@@ -27,11 +27,13 @@ class LineFollowingPilot:
         self.base_throttle = base_throttle
         self._running = False
 
-    def run(self, camera) -> None:
+    def run(self, camera, debug_streamer=None) -> None:
         """Khởi chạy vòng lặp lái tự động.
 
         Args:
             camera: Đối tượng camera (có hàm .read() trả về BGR frame).
+            debug_streamer: DebugStreamer tùy chọn — publish ảnh + thông số
+                dò line lên trình duyệt mỗi vòng lặp.
         """
         self._running = True
         self.car.arm()  # Kích hoạt động cơ
@@ -49,17 +51,33 @@ class LineFollowingPilot:
             pass
 
         last_time = time.monotonic()
+        start_time = time.monotonic()
+        frames_ok = 0
+        empty_frames = 0
+        line_hits = 0
+        last_empty_warn = 0.0
+        last_stats_log = 0.0
+        last_render_time = time.monotonic()
         try:
             while self._running:
                 start_loop = time.monotonic()
                 frame = camera.read()
                 if frame is None:
-                    logger.warning("pilot_empty_frame")
+                    empty_frames += 1
+                    now = time.monotonic()
+                    if now - last_empty_warn >= 1.0:
+                        logger.warning(
+                            "pilot_empty_frame",
+                            hint="Camera không trả frame — web_control đang chiếm camera? "
+                                 "Dừng: sudo systemctl stop jetracer",
+                        )
+                        last_empty_warn = now
                     time.sleep(0.01)
                     continue
+                frames_ok += 1
 
                 # 1. Tính toán sai số lệch tâm
-                error, mask, debug_frame = self.detector.get_line_error(frame)
+                error, mask, _ = self.detector.get_line_error(frame)
                 
                 # 2. Tính dt cho PID
                 now = time.monotonic()
@@ -68,9 +86,12 @@ class LineFollowingPilot:
 
                 steering = 0.0
                 throttle = 0.0
+                direction = 0
+                confidence = 0.0
 
                 if error is not None:
                     # Phát hiện line -> tính toán góc lái và ga động
+                    line_hits += 1
                     steering = self.pid.compute(error, dt)
                     
                     # Ga động: đi thẳng -> nhanh hơn, cua -> chậm lại
@@ -93,6 +114,77 @@ class LineFollowingPilot:
                 self.car.steering(steering)
                 self.car.throttle(throttle)
 
+                # Publish frame debug + telemetry lên dashboard trình duyệt
+                if debug_streamer is not None:
+                    from line_following.camera import render_debug_frame
+                    render_start = time.monotonic()
+                    now = time.monotonic()
+                    loop_hz = 1.0 / max(dt, 1e-6)
+                    render_fps = 1.0 / max(render_start - last_render_time, 1e-6)
+                    pid_terms = self.pid.last_terms
+
+                    if error is not None:
+                        status_text = "line_ok"
+                    elif confidence > 0.25:
+                        status_text = "sharp_turn"
+                    else:
+                        status_text = "line_lost"
+
+                    overlay = render_debug_frame(
+                        frame,
+                        mask=mask,
+                        error=error,
+                        steering=steering,
+                        throttle=throttle,
+                        pid_terms=pid_terms,
+                        meta={
+                            "frames": frames_ok,
+                            "line_hits": line_hits,
+                            "loop_hz": loop_hz,
+                            "fps": render_fps,
+                            "dt_ms": dt * 1000.0,
+                            "base_throttle": self.base_throttle,
+                            "direction": direction,
+                            "confidence": confidence,
+                        },
+                    )
+                    last_render_time = render_start
+                    debug_streamer.publish_metrics({
+                        "ts": time.monotonic(),
+                        "uptime_s": now - start_time,
+                        "status": status_text,
+                        "error": error,
+                        "steering": steering,
+                        "throttle": throttle,
+                        "p": pid_terms.get("p", 0.0),
+                        "i": pid_terms.get("i", 0.0),
+                        "d": pid_terms.get("d", 0.0),
+                        "direction": direction,
+                        "confidence": confidence,
+                        "loop_hz": loop_hz,
+                        "fps": render_fps,
+                        "dt_ms": dt * 1000.0,
+                        "frames": frames_ok,
+                        "line_hits": line_hits,
+                        "empty_frames": empty_frames,
+                        "kp": self.pid.kp,
+                        "ki": self.pid.ki,
+                        "kd": self.pid.kd,
+                        "base_throttle": self.base_throttle,
+                    })
+                    debug_streamer.publish(overlay)
+
+                now = time.monotonic()
+                if now - last_stats_log >= 5.0:
+                    logger.info(
+                        "pilot_status",
+                        frames_ok=frames_ok,
+                        line_hits=line_hits,
+                        steering=round(steering, 3),
+                        throttle=round(throttle, 3),
+                    )
+                    last_stats_log = now
+
                 # Giới hạn tần số vòng lặp
                 elapsed = time.monotonic() - start_loop
                 sleep_time = max(0.0, interval - elapsed)
@@ -112,29 +204,42 @@ class LineFollowingPilot:
 
 
 if __name__ == "__main__":
-    import cv2 as _cv2
+    import sys as _sys
     from line_following import config
+    from line_following.camera import DebugStreamer, PilotCamera
     from line_following.detector import LineDetector
     from line_following.pid import PIDController
-    
-    class SimpleCamera:
-        def __init__(self, device_id: int = 0):
-            try:
-                from web_control.camera import gstreamer_pipeline
-                self.cap = _cv2.VideoCapture(gstreamer_pipeline(), _cv2.CAP_GSTREAMER)
-            except Exception:
-                self.cap = _cv2.VideoCapture(device_id)
-
-        def read(self):
-            ok, frame = self.cap.read()
-            return frame if ok else None
 
     car = Car()
     detector = LineDetector(config.LOWER_YELLOW, config.UPPER_YELLOW)
     pid = PIDController(config.KP, config.KI, config.KD)
-    
+
+    try:
+        camera = PilotCamera(config.CAMERA_DEVICE_ID)
+    except RuntimeError as exc:
+        print(exc, file=_sys.stderr)
+        _sys.exit(1)
+
+    streamer = None
+    if config.DEBUG_STREAM_ENABLED:
+        streamer = DebugStreamer()
+        if streamer.start():
+            print("Debug dashboard: http://<IP-JETSON>:{}/dashboard".format(streamer.port))
+            print("Video only    : http://<IP-JETSON>:{}/".format(streamer.port))
+        else:
+            print(
+                "Cảnh báo: không mở được debug stream cổng {} "
+                "(có thể bị chiếm). Pilot vẫn chạy bình thường."
+                .format(streamer.port),
+                file=_sys.stderr,
+            )
+
     pilot = LineFollowingPilot(car, detector, pid, config.BASE_THROTTLE)
-    camera = SimpleCamera(config.CAMERA_DEVICE_ID)
-    
+
     print("Bắt đầu chạy dò line tự động... Nhấn Ctrl+C để dừng và tắt động cơ.")
-    pilot.run(camera)
+    try:
+        pilot.run(camera, debug_streamer=streamer)
+    finally:
+        camera.release()
+        if streamer is not None:
+            streamer.stop()
