@@ -13,8 +13,14 @@ Cung cấp:
 import json
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import socketserver
+
+# Tạo ThreadingHTTPServer tương thích Python 3.6
+class ThreadingHTTPServer(socketserver.ThreadingMixIn, HTTPServer):
+    daemon_threads = True
+    
 import cv2
 import numpy as np
 
