@@ -1,6 +1,12 @@
-torch>=2.0
-torchvision>=0.15
-opencv-python>=4.8.0.76
-pandas>=2.0
-numpy>=1.24
-structlog>=23.1.0
+# ─── Runtime production (line_following + web_control) ──────────────────
+numpy>=1.24,<3.0
+opencv-python>=4.8.0.76,<5.0
+Flask>=2.3,<4.0
+structlog>=21.0,<26.0
+
+# ─── Autopilot (auto_car/) + dataset tooling ───────────────────────────
+torch>=2.0,<3.0
+torchvision>=0.15,<1.0
+pandas>=2.0,<3.0
+
+

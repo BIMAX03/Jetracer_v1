@@ -126,10 +126,12 @@ class LineFollowingPilot:
                         throttle = self.base_throttle * 0.6
                         logger.warning("sharp_turn_detected", direction=direction, confidence=confidence)
                     else:
-                        # Mất dấu hoàn toàn -> chạy rất chậm tìm lại đường
+                        # Mất dấu hoàn toàn -> DỪNG HẲN (an toàn)
+                        # Không "mò line" bằng ga, tránh xe lao khi line thật sự kết thúc
+                        # hoặc khi xe đã lệch hẳn khỏi line (PID không có error để bù lái).
                         steering = 0.0
-                        throttle = self.base_throttle * 0.4
-                        logger.warning("line_lost_searching")
+                        throttle = 0.0
+                        logger.warning("line_lost_stopping")
 
                 # Gửi lệnh trực tiếp điều khiển xe
                 self.car.steering(steering)

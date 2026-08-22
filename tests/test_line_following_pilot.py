@@ -131,6 +131,37 @@ class PilotSafetyTest(unittest.TestCase):
             sys.modules["structlog"] = saved
         self.assertIn(("stop",), self.car.calls)
 
+    def test_line_lost_sets_throttle_to_zero(self):
+        """Khi detector trả error=None và check_sharp_turn trả confidence=0,
+        pilot phải set throttle=0 (không 'chạy chậm tìm line' nữa).
+        Đây là regression test cho bug 'xe vẫn chạy khi không bắt line'.
+        """
+        cam = FakeCam(frames=[object(), _InterruptSentinel()])
+        self.make_pilot().run(cam)
+        throttle_calls = [c for c in self.car.calls if c[0] == "throttle"]
+        self.assertTrue(len(throttle_calls) >= 1, "pilot phải gọi throttle ít nhất 1 lần")
+        for call in throttle_calls:
+            self.assertEqual(
+                call[1], 0.0,
+                f"Mất line hoàn toàn phải throttle=0, nhưng nhận {call[1]!r}",
+            )
+
+    def test_sharp_turn_still_keeps_some_throttle(self):
+        """Khi phát hiện cua gấp (confidence > 0.25), pilot vẫn được phép
+        giữ throttle > 0 để rẽ — đây không phải 'mất line hoàn toàn'.
+        """
+        class SharpTurnDetector(FakeDetector):
+            def check_sharp_turn(self, mask):
+                return 1, 0.9
+
+        cam = FakeCam(frames=[object(), _InterruptSentinel()])
+        pilot = LineFollowingPilot(self.car, SharpTurnDetector(), FakePid(), 0.22)
+        pilot.run(cam)
+        throttle_calls = [c for c in self.car.calls if c[0] == "throttle"]
+        self.assertTrue(len(throttle_calls) >= 1)
+        # Khi sharp turn, throttle phải > 0 (0.22 * 0.6 = 0.132)
+        self.assertGreater(throttle_calls[-1][1], 0.0)
+
 
 def _arm_then_raise_keyboard_interrupt(self, duration=2.0):
     self.calls.append(("arm", duration))
