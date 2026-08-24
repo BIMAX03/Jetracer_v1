@@ -12,7 +12,7 @@
 
     // Tỉ lệ ga tương ứng với từng Gear (chế độ số)
     var GEAR_MULTIPLIERS = {
-        1: 0.10,  // Số 1: ga nhẹ
+        1: 0.11,  // Số 1: ga nhẹ
         2: 0.35,  // Số 2: ga trung bình
         3: 0.50   // Số 3: khớp THROTTLE_LIMIT hiện tại
     };

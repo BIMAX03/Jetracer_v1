@@ -106,6 +106,7 @@ ROI_START_ROW_PCT = {config.ROI_START_ROW_PCT}  # Bắt đầu lấy từ 50% ch
 # --- Đường quét đích (Scan Line) ---
 # Tỷ lệ chiều cao dòng quét trên vùng ROI dùng để tính sai số lệch tâm
 SCAN_LINE_Y_PCT = {config.SCAN_LINE_Y_PCT}    # Nằm ở 60% chiều cao của vùng ROI
+MIN_LINE_WIDTH_PX = {getattr(config, "MIN_LINE_WIDTH_PX", 15)}   # Số lượng pixel tối thiểu trên đường quét để coi là phát hiện được line
 
 # --- Cấu hình bộ điều khiển PID ---
 KP = {kp_track:.2f}

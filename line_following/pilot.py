@@ -1,12 +1,14 @@
 """Module điều khiển chính vòng lặp tự chạy (Line Following Pilot).
 
-Kết hợp các module `LineDetector` và `PIDController` để đọc khung hình từ
-camera CSI, tính toán sai số, xuất góc lái và tốc độ ga thích hợp rồi
-truyền trực tiếp xuống lớp điều khiển phần cứng `Car`.
+Kết hợp các module `LineDetector` và `LineFollowController` (PID + state
+machine xử lý cua gấp) để đọc khung hình từ camera CSI, tính toán sai số,
+xuất góc lái và tốc độ ga thích hợp rồi truyền trực tiếp xuống lớp điều
+khiển phần cứng `Car`.
 """
 
 import time
 from car import Car
+from line_following.pid import LineFollowController
 
 
 class _SilentLogger:
@@ -20,20 +22,29 @@ class _SilentLogger:
 
 
 class LineFollowingPilot:
-    """Vòng lặp điều khiển lái tự động theo line (Autopilot)."""
+    """Vòng lặp điều khiển lái tự động theo line (Autopilot).
 
-    def __init__(self, car: Car, detector, pid_controller, base_throttle: float) -> None:
-        """Khởi tạo với các thành phần điều khiển xe, dò line và PID.
+    Lớp này CHỈ lo vòng lặp I/O, logging, debug streaming và đảm bảo an
+    toàn (dừng xe khi thoát). Mọi quyết định lái/ga được uỷ thác hoàn toàn
+    cho `LineFollowController.update()` — bao gồm cả chế độ "chạy mù" qua
+    cua gấp (BLIND_TURN) và "mất line dừng hẳn" (LOST).
+    """
+
+    def __init__(self, car: Car, detector, controller: LineFollowController, base_throttle: float) -> None:
+        """Khởi tạo với các thành phần điều khiển xe, dò line và controller.
 
         Args:
             car: Đối tượng Car điều khiển phần cứng của xe JetRacer.
-            detector: Instance của LineDetector.
-            pid_controller: Instance của PIDController.
-            base_throttle: Tốc độ ga cơ bản.
+            detector: Instance của LineDetector (cung cấp `get_line_error()`
+                và `predict_turn_ahead()`).
+            controller: Instance `LineFollowController` bao bọc PID + state
+                machine xử lý cua gấp. Nhận trực tiếp `base_throttle` qua
+                thuộc tính, nên `pilot` chỉ cần giữ tham số này để log/UI.
+            base_throttle: Tốc độ ga cơ bản (tham chiếu, controller đã có).
         """
         self.car = car
         self.detector = detector
-        self.pid = pid_controller
+        self.controller = controller
         self.base_throttle = base_throttle
         self._running = False
 
@@ -54,9 +65,13 @@ class LineFollowingPilot:
             logger = _SilentLogger()
 
         try:
-            logger.info("line_following_pilot_started", base_throttle=self.base_throttle)
+            logger.info(
+                "line_following_pilot_started",
+                base_throttle=self.base_throttle,
+                blind_turn_duration_sec=self.controller.blind_turn_duration_sec,
+            )
             self.car.arm()  # Kích hoạt động cơ
-            self.pid.reset()
+            self.controller.pid.reset()
         except BaseException:
             # Ctrl+C/exception trong lúc arm cũng phải dừng động cơ ngay
             self.stop()
@@ -75,6 +90,7 @@ class LineFollowingPilot:
             frames_ok = 0
             empty_frames = 0
             line_hits = 0
+            blind_turn_events = 0
             last_empty_warn = 0.0
             last_stats_log = 0.0
             last_render_time = time.monotonic()
@@ -99,39 +115,43 @@ class LineFollowingPilot:
 
                 # 1. Tính toán sai số lệch tâm
                 error, mask, _ = self.detector.get_line_error(frame)
-                
-                # 2. Tính dt cho PID
+
+                # 2. Dự đoán cua gấp phía trước (dựa trên mask của frame này)
+                turn_incoming, turn_direction, turn_severity = self.detector.predict_turn_ahead(mask)
+
+                # 3. Tính dt cho PID / state machine
                 now = time.monotonic()
                 dt = now - last_time
                 last_time = now
 
-                steering = 0.0
-                throttle = 0.0
-                direction = 0
-                confidence = 0.0
-
                 if error is not None:
-                    # Phát hiện line -> tính toán góc lái và ga động
                     line_hits += 1
-                    steering = self.pid.compute(error, dt)
-                    
-                    # Ga động: đi thẳng -> nhanh hơn, cua -> chậm lại
-                    throttle_scale = max(0.0, 1.0 - abs(error))
-                    throttle = self.base_throttle * (0.6 + 0.4 * throttle_scale)
-                else:
-                    # Mất dấu ở dòng quét chính -> Kiểm tra cua vuông góc
-                    direction, confidence = self.detector.check_sharp_turn(mask)
-                    if confidence > 0.25:
-                        steering = float(direction) * 1.0  # Đánh lái kịch sàn theo hướng rẽ
-                        throttle = self.base_throttle * 0.6
-                        logger.warning("sharp_turn_detected", direction=direction, confidence=confidence)
-                    else:
-                        # Mất dấu hoàn toàn -> DỪNG HẲN (an toàn)
-                        # Không "mò line" bằng ga, tránh xe lao khi line thật sự kết thúc
-                        # hoặc khi xe đã lệch hẳn khỏi line (PID không có error để bù lái).
-                        steering = 0.0
-                        throttle = 0.0
-                        logger.warning("line_lost_stopping")
+
+                prev_state = self.controller.state
+                cmd = self.controller.update(
+                    error=error,
+                    turn_incoming=turn_incoming,
+                    turn_direction=turn_direction,
+                    turn_severity=turn_severity,
+                    dt=dt,
+                )
+                if prev_state != cmd.state:
+                    logger.warning(
+                        "drive_state_change",
+                        from_state=str(prev_state.value),
+                        to_state=str(cmd.state.value),
+                        error=error,
+                        turn_incoming=turn_incoming,
+                        turn_direction=turn_direction,
+                        turn_severity=round(turn_severity, 3),
+                    )
+                if cmd.state.value == "BLIND_TURN" and prev_state.value != "BLIND_TURN":
+                    blind_turn_events += 1
+
+                steering = cmd.steering
+                throttle = cmd.throttle
+                confidence = turn_severity
+                direction = turn_direction
 
                 # Gửi lệnh trực tiếp điều khiển xe
                 self.car.steering(steering)
@@ -144,11 +164,11 @@ class LineFollowingPilot:
                     now = time.monotonic()
                     loop_hz = 1.0 / max(dt, 1e-6)
                     render_fps = 1.0 / max(render_start - last_render_time, 1e-6)
-                    pid_terms = self.pid.last_terms
+                    pid_terms = self.controller.pid.last_terms
 
-                    if error is not None:
+                    if cmd.state.value == "NORMAL":
                         status_text = "line_ok"
-                    elif confidence > 0.25:
+                    elif cmd.state.value == "BLIND_TURN":
                         status_text = "sharp_turn"
                     else:
                         status_text = "line_lost"
@@ -169,6 +189,8 @@ class LineFollowingPilot:
                             "base_throttle": self.base_throttle,
                             "direction": direction,
                             "confidence": confidence,
+                            "state": cmd.state.value,
+                            "blind_turn_elapsed": cmd.blind_turn_elapsed,
                         },
                     )
                     last_render_time = render_start
@@ -176,6 +198,7 @@ class LineFollowingPilot:
                         "ts": time.monotonic(),
                         "uptime_s": now - start_time,
                         "status": status_text,
+                        "state": cmd.state.value,
                         "error": error,
                         "steering": steering,
                         "throttle": throttle,
@@ -190,9 +213,11 @@ class LineFollowingPilot:
                         "frames": frames_ok,
                         "line_hits": line_hits,
                         "empty_frames": empty_frames,
-                        "kp": self.pid.kp,
-                        "ki": self.pid.ki,
-                        "kd": self.pid.kd,
+                        "blind_turn_events": blind_turn_events,
+                        "blind_turn_elapsed": cmd.blind_turn_elapsed,
+                        "kp": self.controller.pid.kp,
+                        "ki": self.controller.pid.ki,
+                        "kd": self.controller.pid.kd,
                         "base_throttle": self.base_throttle,
                     })
                     debug_streamer.publish(overlay)
@@ -203,6 +228,8 @@ class LineFollowingPilot:
                         "pilot_status",
                         frames_ok=frames_ok,
                         line_hits=line_hits,
+                        blind_turn_events=blind_turn_events,
+                        state=cmd.state.value,
                         steering=round(steering, 3),
                         throttle=round(throttle, 3),
                     )
@@ -235,6 +262,14 @@ if __name__ == "__main__":
     car = Car()
     detector = LineDetector(config.LOWER_YELLOW, config.UPPER_YELLOW)
     pid = PIDController(config.KP, config.KI, config.KD)
+    controller = LineFollowController(
+        pid=pid,
+        base_throttle=config.BASE_THROTTLE,
+        max_steering_limit=config.MAX_STEERING_LIMIT,
+        blind_turn_duration_sec=config.BLIND_TURN_DURATION_SEC,
+        blind_turn_throttle=config.BLIND_TURN_THROTTLE,
+        blind_turn_steer_ratio=config.BLIND_TURN_STEER_RATIO,
+    )
 
     try:
         camera = PilotCamera(config.CAMERA_DEVICE_ID)
@@ -256,7 +291,7 @@ if __name__ == "__main__":
                 file=_sys.stderr,
             )
 
-    pilot = LineFollowingPilot(car, detector, pid, config.BASE_THROTTLE)
+    pilot = LineFollowingPilot(car, detector, controller, config.BASE_THROTTLE)
 
     print("Bắt đầu chạy dò line tự động... Nhấn Ctrl+C để dừng và tắt động cơ.")
     try:

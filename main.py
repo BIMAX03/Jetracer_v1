@@ -62,10 +62,10 @@ def main() -> int:
         return 2
     finally:
         app.extensions["data_collector"].stop()
-        # Nhả CSI/Argus sạch khi Ctrl+C hoặc systemd restart dịch vụ.
-        shutdown_camera()
+        ## Nhả CSI/Argus sạch khi Ctrl+C hoặc systemd restart dịch vụ.
+        # shutdown_camera()
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main())### test sshfs
