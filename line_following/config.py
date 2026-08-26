@@ -20,16 +20,17 @@ ROI_START_ROW_PCT = 0.5  # Bắt đầu lấy từ 50% chiều cao ảnh xuống
 SCAN_LINE_Y_PCT = 0.6    # Nằm ở 60% chiều cao của vùng ROI
 
 # --- Cấu hình bộ điều khiển PID ---
-KP = 1.20
+KP = 0.70
 KI = 0.0
-KD = 0.15
+KD = 0.40
 
 # --- Cấu hình tốc độ chạy ---
 BASE_THROTTLE = 0.12     # Tốc độ ga cơ bản khi chạy thẳng
 MAX_STEERING_LIMIT = 1.0 # Giới hạn góc lái tối đa
 
 # --- Cấu hình cua gấp & Cua mù (Sharp Turn & Blind Turn) ---
-SHARP_TURN_CONFIDENCE_THRESHOLD = 0.25
+SHARP_TURN_CONFIDENCE_THRESHOLD = 0.25  # Ngưỡng confidence để kích hoạt blind turn
+MIN_ERROR_FOR_BLIND_TURN = 0.35         # Chỉ kích hoạt blind turn khi error >= giá trị này
 BLIND_TURN_TIMEOUT = 2.0         # Giới hạn thời gian tối đa cua mù khi mất line (giây)
 BLIND_TURN_THROTTLE_FACTOR = 1.0 # Tỷ lệ ga khi cua mù so với BASE_THROTTLE (1.0 = bằng base)
 

@@ -120,10 +120,12 @@ class LineFollowingPilot:
                     sharp_turn_thresh = getattr(lf_config, "SHARP_TURN_CONFIDENCE_THRESHOLD", 0.25)
                     blind_turn_timeout = getattr(lf_config, "BLIND_TURN_TIMEOUT", 2.0)
                     blind_turn_throttle_factor = getattr(lf_config, "BLIND_TURN_THROTTLE_FACTOR", 0.6)
+                    min_error_for_blind_turn = getattr(lf_config, "MIN_ERROR_FOR_BLIND_TURN", 0.35)
                 except ImportError:
                     sharp_turn_thresh = 0.25
                     blind_turn_timeout = 2.0
                     blind_turn_throttle_factor = 0.6
+                    min_error_for_blind_turn = 0.35
 
                 # Luôn kiểm tra cua gấp trên MỌI frame (kể cả khi line OK)
                 # Điều này cho phép phát hiện góc 90° SỚM, trước khi line thoát khỏi ROI
@@ -133,9 +135,9 @@ class LineFollowingPilot:
                 if error is not None:
                     line_hits += 1
 
-                    if confidence > sharp_turn_thresh:
-                        # Phát hiện góc cua gấp ngay cả khi error còn hợp lệ:
-                        # Kích hoạt / làm mới blind turn, override PID bằng max steering
+                    if confidence > sharp_turn_thresh and abs(error) >= min_error_for_blind_turn:
+                        # Phát hiện góc cua gấp: confidence đủ cao VÀ error đủ lớn
+                        # (tránh nhầm đường thẳng hơi nghiêng thành góc cua)
                         if not self._blind_turn_active:
                             self._blind_turn_active = True
                             self._blind_turn_direction = direction
