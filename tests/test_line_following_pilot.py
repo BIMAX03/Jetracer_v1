@@ -163,18 +163,17 @@ class PilotSafetyTest(unittest.TestCase):
         self.assertGreater(throttle_calls[-1][1], 0.0)
 
     def test_sharp_turn_while_line_ok_triggers_blind_turn(self):
-        """Kiểm tra kịch bản trong screenshot: error vẫn hợp lệ (+0.192) nhưng
-        check_sharp_turn đã thấy góc cua. Pilot phải override PID bằng max steering
-        và kích hoạt blind turn ngay từ khi đó.
+        """Kiểm tra kịch bản khi ENABLE_BLIND_TURN=True: error hợp lệ nhưng
+        check_sharp_turn đã thấy góc cua. Pilot phải override PID bằng max steering.
         """
+        import unittest.mock as mock
         class EarlySharpTurnDetector:
             def get_line_error(self, frame):
-                # Frame 1: error hợp lệ, frame 2: mất line
                 if not hasattr(self, '_call'):
                     self._call = 0
                 self._call += 1
                 if self._call == 1:
-                    return 0.19, None, None  # Line OK giống screenshot
+                    return 0.45, None, None  # Line OK
                 return None, None, None      # Mất line ở frame tiếp theo
 
             def check_sharp_turn(self, mask):
@@ -182,14 +181,17 @@ class PilotSafetyTest(unittest.TestCase):
 
         class StraightPid(FakePid):
             def compute(self, error, dt):
-                return 0.19 * 1.2  # Kp*error (PID yếu, chỉ ~0.23)
+                return 0.45 * 1.2
 
         cam = FakeCam(frames=[object(), object(), _InterruptSentinel()])
         pilot = LineFollowingPilot(self.car, EarlySharpTurnDetector(), StraightPid(), 0.22)
-        pilot.run(cam)
+        
+        with mock.patch("line_following.config.ENABLE_BLIND_TURN", True), \
+             mock.patch("line_following.config.SHARP_TURN_CONFIDENCE_THRESHOLD", 0.25), \
+             mock.patch("line_following.config.MIN_ERROR_FOR_BLIND_TURN", 0.35):
+            pilot.run(cam)
 
         steer_calls = [c[1] for c in self.car.calls if c[0] == "steering"]
-        # Cả 2 frame đều phải ra max steering (1.0), không phải PID yếu (~0.23)
         self.assertEqual(steer_calls[0], 1.0, "Frame 1: blind turn phải override PID")
         self.assertEqual(steer_calls[1], 1.0, "Frame 2: tiếp tục cua mù")
 
@@ -197,6 +199,7 @@ class PilotSafetyTest(unittest.TestCase):
         """Khi phát hiện góc cua gấp, nếu các frame tiếp theo bị mất line,
         xe vẫn phải giữ lái và ga cua (không được dừng ngay lập tức).
         """
+        import unittest.mock as mock
         class MockDetector:
             def __init__(self):
                 self.calls = 0
@@ -210,7 +213,8 @@ class PilotSafetyTest(unittest.TestCase):
 
         cam = FakeCam(frames=[object(), object(), _InterruptSentinel()])
         pilot = LineFollowingPilot(self.car, MockDetector(), FakePid(), 0.22)
-        pilot.run(cam)
+        with mock.patch("line_following.config.BLIND_TURN_THROTTLE_FACTOR", 0.6):
+            pilot.run(cam)
         
         steer_calls = [c[1] for c in self.car.calls if c[0] == "steering"]
         throttle_calls = [c[1] for c in self.car.calls if c[0] == "throttle"]

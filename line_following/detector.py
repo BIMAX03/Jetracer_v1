@@ -91,12 +91,17 @@ class LineDetector:
             - confidence: độ tin cậy của phát hiện cua gấp [0.0, 1.0].
         """
         if mask is None:
+            self.last_left_score = 0.0
+            self.last_right_score = 0.0
             return 0, 0.0
         h, w = mask.shape
-        return self._right_angle_hint(mask, w // 2)
+        direction, confidence, l_score, r_score = self._right_angle_hint(mask, w // 2)
+        self.last_left_score = l_score
+        self.last_right_score = r_score
+        return direction, confidence
 
     @staticmethod
-    def _right_angle_hint(mask: np.ndarray, center_x: int) -> Tuple[int, float]:
+    def _right_angle_hint(mask: np.ndarray, center_x: int) -> Tuple[int, float, float, float]:
         """Phát hiện các góc cua vuông hoặc cua gấp đột ngột khi line đi ngang.
 
         Phương pháp: quét 2 vùng theo chiều dọc ROI:
@@ -113,6 +118,8 @@ class LineDetector:
             Một tuple gồm:
             - direction: -1 (cua trái), 1 (cua phải), 0 (không cua gấp).
             - confidence: độ tin cậy của phát hiện cua gấp [0.0, 1.0].
+            - left_score: điểm mật độ tổng hợp phía trái.
+            - right_score: điểm mật độ tổng hợp phía phải.
         """
         h, w = mask.shape
         center_x = max(1, min(w - 1, center_x))
@@ -150,9 +157,9 @@ class LineDetector:
         # Ngưỡng phát hiện
         threshold = 0.15
         if left_score > threshold and left_score > right_score * 1.3:
-            return -1, left_score
+            return -1, left_score, left_score, right_score
         elif right_score > threshold and right_score > left_score * 1.3:
-            return 1, right_score
+            return 1, right_score, left_score, right_score
 
-        return 0, 0.0
+        return 0, 0.0, left_score, right_score
 

@@ -42,6 +42,9 @@ class LineFollowingPilot:
         self._blind_turn_direction = 0
         self._blind_turn_start_time = 0.0
 
+        # Giá trị steering đã lọc (low-pass filter)
+        self._smoothed_steering = 0.0
+
     def run(self, camera, debug_streamer=None) -> None:
         """Khởi chạy vòng lặp lái tự động.
 
@@ -117,27 +120,31 @@ class LineFollowingPilot:
 
                 try:
                     from line_following import config as lf_config
-                    sharp_turn_thresh = getattr(lf_config, "SHARP_TURN_CONFIDENCE_THRESHOLD", 0.25)
+                    enable_blind_turn = getattr(lf_config, "ENABLE_BLIND_TURN", False)
+                    sharp_turn_thresh = getattr(lf_config, "SHARP_TURN_CONFIDENCE_THRESHOLD", 0.50)
                     blind_turn_timeout = getattr(lf_config, "BLIND_TURN_TIMEOUT", 2.0)
-                    blind_turn_throttle_factor = getattr(lf_config, "BLIND_TURN_THROTTLE_FACTOR", 0.6)
-                    min_error_for_blind_turn = getattr(lf_config, "MIN_ERROR_FOR_BLIND_TURN", 0.35)
+                    blind_turn_throttle_factor = getattr(lf_config, "BLIND_TURN_THROTTLE_FACTOR", 1.0)
+                    min_error_for_blind_turn = getattr(lf_config, "MIN_ERROR_FOR_BLIND_TURN", 0.40)
+                    error_deadzone = getattr(lf_config, "ERROR_DEADZONE", 0.06)
                 except ImportError:
-                    sharp_turn_thresh = 0.25
+                    enable_blind_turn = False
+                    sharp_turn_thresh = 0.50
                     blind_turn_timeout = 2.0
-                    blind_turn_throttle_factor = 0.6
-                    min_error_for_blind_turn = 0.35
+                    blind_turn_throttle_factor = 1.0
+                    min_error_for_blind_turn = 0.40
+                    error_deadzone = 0.06
 
                 # Luôn kiểm tra cua gấp trên MỌI frame (kể cả khi line OK)
-                # Điều này cho phép phát hiện góc 90° SỚM, trước khi line thoát khỏi ROI
-                # Lưu ý: check_sharp_turn xử lý mask=None bên trong bằng cách trả (0, 0.0)
                 direction, confidence = self.detector.check_sharp_turn(mask)
 
                 if error is not None:
                     line_hits += 1
 
-                    if confidence > sharp_turn_thresh and abs(error) >= min_error_for_blind_turn:
-                        # Phát hiện góc cua gấp: confidence đủ cao VÀ error đủ lớn
-                        # (tránh nhầm đường thẳng hơi nghiêng thành góc cua)
+                    # Áp dụng vùng chết (deadzone) cho PID để triệt tiêu lắc xắc đường thẳng
+                    pid_error = 0.0 if abs(error) < error_deadzone else error
+
+                    # Nếu enable_blind_turn được bật VÀ thỏa mãn điều kiện cua gấp
+                    if enable_blind_turn and confidence > sharp_turn_thresh and abs(error) >= min_error_for_blind_turn:
                         if not self._blind_turn_active:
                             self._blind_turn_active = True
                             self._blind_turn_direction = direction
@@ -150,28 +157,23 @@ class LineFollowingPilot:
                                 timeout=blind_turn_timeout,
                             )
                         else:
-                            # Làm mới timer khi vẫn thấy line và còn trong góc cua
                             self._blind_turn_start_time = now
 
                         steering = float(direction) * 1.0
                         throttle = self.base_throttle * blind_turn_throttle_factor
 
                     elif self._blind_turn_active:
-                        # Đang trong blind turn, confidence đã giảm nhưng vẫn thấy line.
-                        # Chỉ thoát blind turn khi error đủ nhỏ (xe đã thẳng hàng trở lại).
-                        # KHÔNG thoát chỉ vì confidence giảm 1 frame (tránh bị abort giữa cua).
                         if abs(error) < 0.3:
                             self._blind_turn_active = False
                             logger.info("blind_turn_recovered_line", error=round(error, 3))
 
-                        # Dù thoát hay không, vẫn bám line bằng PID
-                        steering = self.pid.compute(error, dt)
+                        steering = self.pid.compute(pid_error, dt)
                         throttle_scale = max(0.0, 1.0 - abs(error))
                         throttle = self.base_throttle * (0.6 + 0.4 * throttle_scale)
 
                     else:
-                        # Bình thường: bám line theo PID
-                        steering = self.pid.compute(error, dt)
+                        # Chạy thuần bằng PID khi đường thẳng / đường cong thường
+                        steering = self.pid.compute(pid_error, dt)
                         throttle_scale = max(0.0, 1.0 - abs(error))
                         throttle = self.base_throttle * (0.6 + 0.4 * throttle_scale)
 
@@ -256,12 +258,19 @@ class LineFollowingPilot:
                         "status": status_text,
                         "error": error,
                         "steering": steering,
+                        "smoothed_steering": getattr(self, "_smoothed_steering", steering),
                         "throttle": throttle,
                         "p": pid_terms.get("p", 0.0),
                         "i": pid_terms.get("i", 0.0),
                         "d": pid_terms.get("d", 0.0),
                         "direction": direction,
                         "confidence": confidence,
+                        "left_score": getattr(self.detector, "last_left_score", 0.0),
+                        "right_score": getattr(self.detector, "last_right_score", 0.0),
+                        "blind_turn_active": self._blind_turn_active,
+                        "blind_turn_timer": (now - self._blind_turn_start_time) if self._blind_turn_active else 0.0,
+                        "enable_blind_turn": enable_blind_turn,
+                        "error_deadzone": error_deadzone,
                         "loop_hz": loop_hz,
                         "fps": render_fps,
                         "dt_ms": dt * 1000.0,
