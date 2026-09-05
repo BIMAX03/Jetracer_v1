@@ -13,43 +13,26 @@ UPPER_YELLOW = np.array([35, 255, 255], dtype=np.uint8)
 
 # --- Cấu hình Vùng quan tâm (ROI) ---
 # Chỉ xử lý phần dưới của bức ảnh để tránh nhiễu và tăng tốc độ xử lý
-ROI_START_ROW_PCT = 0.5  # Bắt đầu lấy từ 50% chiều cao ảnh xuống dưới
+ROI_START_ROW_PCT = 0.3  # phần trăm chiều cao ảnh được giữ lại
 
 # --- Đường quét đích (Scan Line) ---
 # Tỷ lệ chiều cao dòng quét trên vùng ROI dùng để tính sai số lệch tâm
 SCAN_LINE_Y_PCT = 0.6    # Nằm ở 60% chiều cao của vùng ROI
 
-# --- Cấu hình bộ điều khiển PID ---
-KP = 0.40    # Tỉ lệ: phản ứng vừa đủ mượt
-KI = 0.0
-KD = 0.05    # Đạo hàm nhỏ để tránh nhiễu camera
-ERROR_DEADZONE = 0.06  # Vùng chết: lệch < 6% coi như error = 0, giúp xe chạy thẳng tuyệt đối không rung
+# Cấu hình Camera
+CAMERA_INDEX = 0          # 0: Camera mặc định / USB Cam, hoặc đường dẫn RTSP / video file
+FRAME_WIDTH = 640         # Khuyến nghị 320x240 hoặc 640x360 để giữ FPS > 30 trên Raspberry Pi/Jetson
+FRAME_HEIGHT = 480
+FRAME_FPS = 30
 
-# --- Cấu hình tốc độ chạy ---
-BASE_THROTTLE = 0.10     # Tốc độ ga 15% (vượt qua deadband vật lý ESC)
-MAX_STEERING_LIMIT = 1.0 # Giới hạn góc lái tối đa
+# Thông số PID cho vô lăng (steering)
+KP = 0.3 # Tỷ lệ phần trăm vô lăng cần bẻ so với góc lệch tâm
+KI = 0.0 # Tỷ lệ phần trăm vô lăng cần bẻ so với tổng sai số tích lũy
+KD = 0.07 # Tỷ lệ phần trăm vô lăng cần bẻ so với tốc độ thay đổi của sai số
 
-# --- Lọc đầu ra steering (Low-pass filter) ---
-STEERING_SMOOTHING = 0.25  # Lọc mượt lệnh lái
+BASE_THROTTLE = 0.10 # Tốc độ cơ bản khi chạy thẳng
 
-# --- Cấu hình cua gấp & Cua mù (Sharp Turn & Blind Turn) ---
-ENABLE_BLIND_TURN = False       # Tắt cua mù tạm thời để tập trung chạy thẳng mượt 100% bằng PID
-SHARP_TURN_CONFIDENCE_THRESHOLD = 0.50  # Ngưỡng confidence cao để tránh báo giả
-MIN_ERROR_FOR_BLIND_TURN = 0.40         # Chỉ kích hoạt blind turn khi lệch hẳn
-BLIND_TURN_TIMEOUT = 2.0         # Giới hạn thời gian tối đa cua mù khi mất line (giây)
-BLIND_TURN_THROTTLE_FACTOR = 1.0 # Tỷ lệ ga khi cua mù (1.0 = bằng BASE_THROTTLE)
+MAX_STEERING = 1.0 # gốc lái tối đa
 
-# --- Thiết lập camera & Vòng lặp ---
-CAMERA_DEVICE_ID = 0
-LOOP_HZ = 20             # Tần số xử lý (Hz)
-
-# --- Luồng debug trực quan (Dashboard web trên trình duyệt) ---
-# Bật để xem ảnh camera + toàn bộ chỉ số + đồ thị realtime tại:
-#     http://<IP-JETSON>:<port>/dashboard   ← dashboard đầy đủ (khuyến nghị)
-#     http://<IP-JETSON>:<port>/            ← chỉ luồng MJPEG video
-# khi pilot đang chạy (không chiếm cổng 5000 của web_control).
-DEBUG_STREAM_ENABLED = True
-DEBUG_STREAM_HOST = "0.0.0.0"
-DEBUG_STREAM_PORT = 5001
-DEBUG_STREAM_FPS = 20      # Tần số publish frame lên trình duyệt
-DEBUG_STREAM_JPEG_QUALITY = 70
+# Ngưỡng quyết định rẽ gấp (Tăng lên nếu xe bị rẽ nhầm ở đoạn thẳng)
+SHARP_TURN_CONFIDENCE = 0.46

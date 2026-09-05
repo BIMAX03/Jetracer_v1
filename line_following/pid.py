@@ -1,86 +1,81 @@
-"""Module bộ điều khiển PID (Proportional-Integral-Derivative Controller).
+"""Bộ điều khiển PID để tính toán góc đánh lái (Steering)."""
 
-Chứa lớp `PIDController` dùng để tính toán giá trị góc lái phản hồi nhằm
-giảm thiểu sai số lệch tâm của xe so với line.
-"""
-
-
-from typing import Tuple
-
+import time
+from typing import Optional, Tuple
+from line_following import config
 
 class PIDController:
-    """Lớp điều khiển phản hồi PID độc lập."""
+    """Bộ điều khiển PID chuyên biệt cho xe tự hành."""
 
-    def __init__(self, kp: float, ki: float, kd: float, output_limits: Tuple[float, float] = (-1.0, 1.0)) -> None:
-        """Khởi tạo các hệ số PID và giới hạn đầu ra.
-
-        Args:
-            kp: Hệ số tỉ lệ (Proportional).
-            ki: Hệ số tích phân (Integral).
-            kd: Hệ số đạo hàm (Derivative).
-            output_limits: Giới hạn giá trị trả về (min, max).
-        """
+    def __init__(self, kp: float = config.KP, ki: float = config.KI, kd: float = config.KD) -> None:
         self.kp = kp
         self.ki = ki
         self.kd = kd
-        self.min_val, self.max_val = output_limits
+        
+        # Biến lưu trữ trạng thái của quá khứ
+        self.prev_error: float = 0.0
+        self.integral: float = 0.0
+        self.last_time: Optional[float] = None
 
-        self._prev_error = 0.0
-        self._integral = 0.0
-        self._last_terms = {"p": 0.0, "i": 0.0, "d": 0.0}
-
-    def compute(self, error: float, dt: float) -> float:
-        """Tính toán đầu ra dựa trên sai số và khoảng thời gian chu kỳ.
+    def compute(self, error: Optional[float]) -> Tuple[float, dict]:
+        """Tính toán góc bẻ lái dựa trên sai số Error.
 
         Args:
-            error: Sai số hiện tại (lệch tâm).
-            dt: Khoảng thời gian từ lần tính trước (giây).
+            error: Lệch tâm [-1.0, 1.0] lấy từ LineDetector. None nếu mất dấu line.
 
         Returns:
-            Giá trị điều khiển (ví dụ: góc lái) đã được giới hạn.
+            Một Tuple gồm:
+            - steering: Góc bẻ lái gửi xuống bánh xe [-1.0 (Trái), 1.0 (Phải)]
+            - debug_terms: Dict chứa các thông số p, i, d để hiển thị lên màn hình.
         """
-        if dt <= 0.0:
-            return 0.0
+        current_time = time.time()
 
-        # Proportional term
+        # Xử lý trường hợp lần đầu chạy hoặc bị mất dấu line
+        if self.last_time is None or error is None:
+            self.last_time = current_time
+            self.prev_error = error if error is not None else 0.0
+            self.integral = 0.0
+            return 0.0, {"p": 0.0, "i": 0.0, "d": 0.0, "dt": 0.0}
+
+        # Tính thời gian đã trôi qua kể từ khung hình trước (Delta Time)
+        dt = current_time - self.last_time
+        self.last_time = current_time
+        
+        # Chống chia cho 0 nếu loop chạy quá nhanh
+        if dt <= 0.0:
+            dt = 0.01 
+
+        # 1. Tính khâu tỷ lệ (P)
         p_term = self.kp * error
 
-        # Integral term with clamping anti-windup
-        self._integral += error * dt
-        if self.ki != 0.0:
-            # Simple clamping anti-windup: limit integration when output saturates
-            # Limit integral term based on other contributions
-            d_term_approx = self.kd * (error - self._prev_error) / dt
-            max_i = (self.max_val - p_term - d_term_approx) / self.ki
-            min_i = (self.min_val - p_term - d_term_approx) / self.ki
-            if min_i > max_i:
-                min_i, max_i = max_i, min_i
-            self._integral = max(min_i, min(max_i, self._integral))
-            i_term = self.ki * self._integral
-        else:
-            i_term = 0.0
+        # 2. Tính khâu tích phân (I)
+        # Giới hạn vùng nhớ I để tránh lỗi "Integral Windup" (cộng dồn quá lớn khiến xe kẹt vô lăng)
+        self.integral += error * dt
+        self.integral = max(-1.0, min(1.0, self.integral)) 
+        i_term = self.ki * self.integral
 
-        # Derivative term
-        d_term = self.kd * (error - self._prev_error) / dt
-        self._prev_error = error
+        # 3. Tính khâu vi phân (D) - Tốc độ thay đổi của sai số
+        d_term = self.kd * ((error - self.prev_error) / dt)
+        self.prev_error = error
 
-        # Compute output and clamp to limits
-        output = p_term + i_term + d_term
-        self._last_terms = {
+        # 4. Tổng hợp góc lái (Steering)
+        steering = p_term + i_term + d_term
+        
+        # Giới hạn góc lái không vượt ngưỡng cơ khí an toàn
+        steering = max(-config.MAX_STEERING, min(config.MAX_STEERING, steering))
+
+        # Lưu lại để hiển thị debug
+        debug_terms = {
             "p": p_term,
             "i": i_term,
             "d": d_term,
-            "error": error,
+            "dt": dt * 1000  # Đổi ra ms để dễ đọc
         }
-        return max(self.min_val, min(self.max_val, output))
 
-    @property
-    def last_terms(self) -> dict:
-        """Các thành phần P/I/D của lần compute() gần nhất (dùng cho debug)."""
-        return dict(self._last_terms)
+        return steering, debug_terms
 
     def reset(self) -> None:
-        """Đặt lại các biến trạng thái tích phân và sai số cũ."""
-        self._prev_error = 0.0
-        self._integral = 0.0
-        pass
+        """Xóa bộ nhớ quá khứ khi dừng xe hoặc mất line quá lâu."""
+        self.prev_error = 0.0
+        self.integral = 0.0
+        self.last_time = None
