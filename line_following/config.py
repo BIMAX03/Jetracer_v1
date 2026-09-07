@@ -31,8 +31,12 @@ KI = 0.0 # Tỷ lệ phần trăm vô lăng cần bẻ so với tổng sai số 
 KD = 0.07 # Tỷ lệ phần trăm vô lăng cần bẻ so với tốc độ thay đổi của sai số
 
 BASE_THROTTLE = 0.10 # Tốc độ cơ bản khi chạy thẳng
+BASE_THROTTLE_CUA = 0.08 # Tốc độ cơ bản khi cua
 
 MAX_STEERING = 1.0 # gốc lái tối đa
 
 # Ngưỡng quyết định rẽ gấp (Tăng lên nếu xe bị rẽ nhầm ở đoạn thẳng)
 SHARP_TURN_CONFIDENCE = 0.46
+
+
+PRE_TURN_CONFIDENCE = 0.20 
