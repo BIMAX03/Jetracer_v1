@@ -23,7 +23,8 @@ class LineDetector:
         
         # 1. Cắt ROI
         roi_start_y = int(h * config.ROI_START_ROW_PCT)
-        roi = frame[roi_start_y:h, :]
+        roi_start_y = int(h * config.ROI_START_ROW_PCT)
+        roi = frame[roi_start_y:h, :] # Lấy từ roi_start_y đến hết đáy (h)
         roi_h, roi_w = roi.shape[:2]
         center_x = roi_w // 2
 

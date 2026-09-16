@@ -101,18 +101,18 @@ def _generate_mjpeg(mode: str, detector: LineDetector):
 
 
 def _build_debug_overlay(frame: np.ndarray, detector: LineDetector) -> np.ndarray:
-    """Vẽ overlay ROI + scan line + error lên ảnh gốc."""
+    """Vẽ overlay ROI + scan line + error lên ảnh gốc (dành cho ROI phía dưới)."""
     error, mask, _ = detector.get_line_error_moments(frame)
     debug_img = frame.copy()
     h, w = debug_img.shape[:2]
 
-    # 1. Vẽ khung ROI
+    # 1. Vẽ khung ROI (Kéo từ roi_y xuống đáy màn hình)
     roi_y = int(h * config.ROI_START_ROW_PCT)
     cv2.rectangle(debug_img, (0, roi_y), (w - 1, h - 1), (0, 255, 255), 2)
     cv2.putText(debug_img, "ROI", (10, roi_y - 8),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
 
-    # 2. Đường tâm xe
+    # 2. Đường tâm xe (Vẽ từ roi_y xuống đáy màn hình)
     cx = w // 2
     cv2.line(debug_img, (cx, roi_y), (cx, h), (255, 0, 0), 1)
 
@@ -121,6 +121,7 @@ def _build_debug_overlay(frame: np.ndarray, detector: LineDetector) -> np.ndarra
         line_cx = int(cx + error * (w / 2.0))
         roi_h = h - roi_y
         scan_y = roi_y + int(roi_h * config.SCAN_LINE_Y_PCT)
+        
         cv2.line(debug_img, (0, scan_y), (w, scan_y), (0, 255, 0), 2)
         cv2.circle(debug_img, (line_cx, scan_y), 10, (0, 0, 255), -1)
         cv2.line(debug_img, (cx, scan_y), (line_cx, scan_y), (0, 0, 255), 2)
