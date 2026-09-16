@@ -16,7 +16,7 @@ UPPER_YELLOW = np.array([180, 255, 255], dtype=np.uint8)
 ROI_START_ROW_PCT = 0.3  # phần trăm chiều cao ảnh được giữ lại
 
 # --- Đường quét đích (Scan Line) ---
-# Tỷ lệ chiều cao dòng quét trên vùng ROI dùng để tính sai số lệch tâm
+## Tỷ lệ chiều cao dòng quét trên vùng ROI dùng để tính sai số lệch tâm
 SCAN_LINE_Y_PCT = 0.6    # Nằm ở 60% chiều cao của vùng ROI
 
 # Cấu hình Camera
