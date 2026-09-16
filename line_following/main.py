@@ -48,7 +48,6 @@ try:
             # 1. GẶP CUA: Lập tức khóa cứng vô lăng + hạ ga (Cùng một lúc)
             steering = turn_dir * config.MAX_STEERING
             
-            # Đảm bảo mức ga này đủ để xe nhích đi (VD: 0.13), không bị chết lịm
             throttle = config.BASE_THROTTLE_CUA 
             
             pid.reset()  
